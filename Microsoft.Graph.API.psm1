@@ -16,6 +16,17 @@ function Connect-MSGraphCertificate
     )
     begin
     {
+        If ($global:login -eq 'MSGraphAppSecret')
+        {
+            Write-Verbose "You're already logged on with ClientID and ClientScret. Keep in mind that Certificate is more safe."
+            $Confirmation = Read-Host 'You already logged on with ClientID and ClientSecret. Are you sure you want to proceed with Certificate? Type yes to continue.' -Verbose
+            if (($Confirmation -eq 'y') -or ($Confirmation -eq 'yes') -or ($Confirmation -eq 'true'))
+            {
+                Write-Verbose "We will continue logging in with Certificate"
+                $global:login = $null
+                $global:AppPass = $null
+            }
+        }
         $global:ApplicationID = $ApplicationID
         $global:Thumbprint = $Thumbprint
         $global:TenantID = $TenantID
@@ -69,6 +80,17 @@ function Connect-MSGraphAppSecret
     )
     begin
     {
+        If ($global:login -eq 'MSGraphCertificate')
+        {
+            Write-Verbose "You're already logged on with ClientID and Certificate. Keep in mind that Certificate is more safe."
+            $Confirmation = Read-Host 'You already logged on with ClientID and Certificate. Are you sure you want to proceed with ClientSecret (less safe)? Type yes to continue.' -Verbose
+            if (($Confirmation -eq 'y') -or ($Confirmation -eq 'yes') -or ($Confirmation -eq 'true'))
+            {
+                Write-Verbose "We will continue logging in with Certificate"
+                $global:login = $null
+                $global:Certlogin = $null
+            }
+        }
         $global:ApplicationID = $ApplicationID
         $global:ApplicationSecret = $ApplicationSecret
         $global:TenantID = $TenantID
