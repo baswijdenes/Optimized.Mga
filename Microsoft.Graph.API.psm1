@@ -1,6 +1,6 @@
 function Connect-MSGraphCertificate
 {
-    [CmdletBinding(HelpURI = 'https://bwit.blog')]
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [Alias("ID", "AppID", "ClientID", "App")]
@@ -63,7 +63,7 @@ function Connect-MSGraphCertificate
 
 function Connect-MSGraphAppSecret
 {
-    [CmdletBinding(HelpURI = 'https://bwit.blog')]
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [Alias("ID", "AppID", "ClientID", "App")]
@@ -76,7 +76,7 @@ function Connect-MSGraphAppSecret
         [Parameter(Mandatory = $true)]
         [Alias("TenantName", "Tenant")]
         [string]
-        $TenantID
+        $TenantID 
     )
     begin
     {
@@ -92,7 +92,8 @@ function Connect-MSGraphAppSecret
             }
         }
         $global:ApplicationID = $ApplicationID
-        $global:ApplicationSecret = $ApplicationSecret
+        $global:ApplicationSecret = (ConvertTo-SecureString $ApplicationSecret -AsPlainText -Force)
+        $ApplicationSecret = $null
         $global:TenantID = $TenantID
         $global:Login = 'MSGraphAppSecret'
         $global:ErrorList = [system.Collections.Generic.List[system.Object]]::new()
@@ -101,10 +102,13 @@ function Connect-MSGraphAppSecret
     {
         try
         {
+            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($global:ApplicationSecret)
+            $TempPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
             Get-MSGRAPHOauthToken `
                 -AppID $global:ApplicationID `
-                -AppPass $global:ApplicationSecret `
+                -AppPass $TempPass `
                 -Tenant $global:TenantID
+            $BSTR = $null
         }
         catch
         {
@@ -125,121 +129,9 @@ function Connect-MSGraphAppSecret
     }
 }
 
-function Get-MSGraphReport
-{
-    [CmdletBinding(HelpURI = 'https://bwit.blog')]
-    param (
-        [Parameter(Mandatory = $true)]
-        [Alias("URI")]
-        [string]
-        $URL
-    )
-    begin
-    {
-        try
-        {
-            $global:ErrorList = [system.Collections.Generic.List[system.Object]]::new()
-            if ($global:Login -eq 'MSGraphAppSecret')
-            {
-                Get-MSGRAPHOauthToken `
-                    -AppID $global:ApplicationID `
-                    -AppPass $global:ApplicationSecret `
-                    -Tenant $global:TenantID
-            }
-            elseif ($global:Login -eq 'MSGraphCertificate')
-            {
-                Get-MSGRAPHOauthToken `
-                    -AppID $global:ApplicationID `
-                    -Thumbprint $global:Thumbprint `
-                    -Tenant $global:TenantID
-            }
-            else
-            {
-                Throw "You need to run one of these cmdlets: Connect-MSGraphAppSecret or Connect-MSGraphCertificate before you can continue. Exiting script..."
-                break
-            }
-        }
-        catch
-        {
-            $Object = [PSCustomObject] @{
-                Information  = "Get-MSGRaphReport: Error in begin of function."
-                ErrorMessage = "$($_.Exception.Message)"
-            }
-            $global:ErrorList.Add($Object) 
-            Write-Warning 'Get-MSGRaphReport: To see if there are more errors please run: $global:ErrorList.'
-            throw $_.Exception.Message
-            break
-        }
-    }
-    process
-    {
-        try
-        {
-            Write-Verbose "Get-MSGRaphReport: Getting results from $URL."
-            $Result = Invoke-WebRequest -UseBasicParsing -Headers $global:HeaderParameters -Uri $URL -Method get
-            if ($result.Headers.'Content-Type' -like "application/octet-stream*")
-            {
-                Write-Verbose "Get-MSGRaphReport: Result is in CSV format. Converting to CSV."
-                Write-Verbose "Get-MSGRaphReport: We will add the data to endresult."
-                $EndResult = ConvertFrom-Csv -InputObject $Result
-            }
-            if ($result.Headers.'Content-Type' -like "application/json*")
-            {   
-                Write-Verbose "Get-MSGRaphReport: Result is in JSON format. Converting to JSON."
-                $JSON = ConvertFrom-Json -InputObject $Result
-                if ($JSON.'@odata.nextLink')
-                {
-                    Write-Verbose "Get-MSGRaphReport: Data output is more than 100 results. We will run script again with next data link."
-                    $EndResult = @()
-                    foreach ($Line in ($JSON).value)
-                    {
-                        $EndResult += $Line
-                    }
-                    While ($JSON.'@odata.nextLink')
-                    {
-                        Write-Verbose "Get-MSGRaphReport: Data output is still more than 100 results. We will run script again with next data link."
-                        $JSON = (Invoke-WebRequest -UseBasicParsing -Headers $HeaderParameters -Uri $JSON.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
-                        foreach ($Line in ($JSON).value)
-                        {
-                            $EndResult += $Line
-                        }
-                        Write-Verbose "Get-MSGRaphReport: Count is: $($EndResult.count)"
-                    }
-                }
-                elseif ($JSON.value)
-                {
-                    Write-Verbose "Get-MSGRaphReport: Data output is less than 100 results. We will add the data to end result."
-                    $EndResult = $JSON.value
-                }
-                else
-                {
-                    Write-Verbose "Get-MSGRaphReport: Data output is less than 100 results. We will add the data to end result."
-                    $EndResult = $JSON
-                }
-            }
-        }
-        catch
-        {
-            $Object = [PSCustomObject] @{
-                Information  = "Get-MSGRaphReport: Error in process of function."
-                ErrorMessage = "$($_.Exception.Message)"
-            }
-            $global:ErrorList.Add($Object) 
-            Write-Warning 'Get-MSGRaphReport: To see if there are more errors please run: $global:ErrorList.'
-            throw $_.Exception.Message       
-            break
-        }
-    }
-    end
-    {
-        Write-Verbose "Get-MSGRaphReport: We've succesfully retrieved the end result. The end result will be returned."
-        return $EndResult
-    }
-}
-
 function Get-MSGraphOauthToken
 {
-    [CmdletBinding(HelpURI = 'https://bwit.blog')]
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]
@@ -275,8 +167,36 @@ function Get-MSGraphOauthToken
             elseif ($Thumbprint)
             { 
                 Write-Verbose "Get-MSGRAPHOauthToken: Thumbprint: We will continue logging in with Certificate."
-                $Cert = Search-MSGRAPHCertByThumbprint -Thumbprint $Thumbprint
-                $AssertionCert = [Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate]::new($AppID, $Cert)
+                if ($null -eq $global:Certificate)
+                {
+                    if ($Thumbprint.length -eq '40')
+                    {
+                        Write-Verbose "Get-MSGRAPHOauthToken: Thumbprint length is correct. We will continue searching for the cerrtificate in CurrentUser\My and LocalMachine\My."
+                        $Certificate = $null
+                    }
+                    else
+                    {
+                        throw 'The thumbprint length is incorrect. Make sure you paste the thumbprint correctly. Exiting script...'
+                        break
+                    }
+                    Write-Verbose "Get-MSGRAPHOauthToken: Starting search in CurrentUser\my."
+                    $global:Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
+                    if ($null -eq $global:Certificate)
+                    {
+                        Write-Verbose "Get-MSGRAPHOauthToken: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
+                        $global:Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
+                    }
+                    if ($null -eq $global:Certificate)
+                    {
+                        throw "We did not find a thumbprint under: $Thumbprint. Exiting script..."
+                        break
+                    }    
+                }
+                else
+                {
+                    Write-Verbose "Get-MSGRAPHOauthToken: We already obtained a certificate from a previous login. We will continue logging in."
+                }
+                $AssertionCert = [Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate]::new($AppID, $global:Certificate)
                 $AuthContext = [Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext]::new("https://login.microsoftonline.com/$Tenant")
             }
             else
@@ -424,15 +344,22 @@ function Search-MSGraphCertByThumbprint
     {
         try
         {
-            if ($Thumbprint.length -eq '40')
+            if ($null -eq $global:Certificate)
             {
-                Write-Verbose "Search-MSGRAPHCertByThumbprint: Thumbprint length is correct. We will continue searching for the cerrtificate in CurrentUser\My and LocalMachine\My."
-                $Certificate = $null
+                if ($Thumbprint.length -eq '40')
+                {
+                    Write-Verbose "Search-MSGRAPHCertByThumbprint: Thumbprint length is correct. We will continue searching for the cerrtificate in CurrentUser\My and LocalMachine\My."
+                    $Certificate = $null
+                }
+                else
+                {
+                    throw 'The thumbprint length is incorrect. Make sure you paste the thumbprint correctly. Exiting script...'
+                    break
+                }
             }
             else
             {
-                throw 'The thumbprint length is incorrect. Make sure you paste the thumbprint correctly. Exiting script...'
-                break
+                Write-Verbose "Search-MSGRAPHCertByThumbprint: We already obtained a certificate from a previous login. We will continue logging in."
             }
         }
         catch
@@ -446,22 +373,26 @@ function Search-MSGraphCertByThumbprint
             throw $_.Exception.Message
             break
         }
+        
     }
     process
     {
         try
         {
-            Write-Verbose "Search-MSGRAPHCertByThumbprint: Starting search in CurrentUser\my."
-            $Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
-            if ($null -eq $Certificate)
+            if ($null -eq $global:Certificate)
             {
-                Write-Verbose "Search-MSGRAPHCertByThumbprint: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
-                $Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
-            }
-            if ($null -eq $Certificate)
-            {
-                throw "We did not find a thumbprint under: $Thumbprint. Exiting script..."
-                break
+                Write-Verbose "Search-MSGRAPHCertByThumbprint: Starting search in CurrentUser\my."
+                $global:Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
+                if ($null -eq $global:Certificate)
+                {
+                    Write-Verbose "Search-MSGRAPHCertByThumbprint: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
+                    $Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
+                }
+                if ($null -eq $global:Certificate)
+                {
+                    throw "We did not find a thumbprint under: $Thumbprint. Exiting script..."
+                    break
+                }
             }
         }
         catch
@@ -483,3 +414,352 @@ function Search-MSGraphCertByThumbprint
     }
 }
 
+function New-MSGraphGETRequest
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [Alias("URI")]
+        [string]
+        $URL
+    )
+    begin
+    {
+        try
+        {
+            $global:ErrorList = [system.Collections.Generic.List[system.Object]]::new()
+            if ($global:Login -eq 'MSGraphAppSecret')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -AppPass $global:ApplicationSecret `
+                    -Tenant $global:TenantID
+            }
+            elseif ($global:Login -eq 'MSGraphCertificate')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -Thumbprint $global:Thumbprint `
+                    -Tenant $global:TenantID
+            }
+            else
+            {
+                Throw "You need to run one of these cmdlets: Connect-MSGraphAppSecret or Connect-MSGraphCertificate before you can continue. Exiting script..."
+                break
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphGETRequest: Error in begin of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphGETRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break
+        }
+    }
+    process
+    {
+        try
+        {
+            Write-Verbose "New-MSGraphGETRequest: Getting results from $URL."
+            $Result = Invoke-WebRequest -UseBasicParsing -Headers $global:HeaderParameters -Uri $URL -Method get
+            if ($result.Headers.'Content-Type' -like "application/octet-stream*")
+            {
+                Write-Verbose "New-MSGraphGETRequest: Result is in CSV format. Converting to CSV."
+                Write-Verbose "New-MSGraphGETRequest: We will add the data to endresult."
+                $EndResult = ConvertFrom-Csv -InputObject $Result
+            }
+            if ($result.Headers.'Content-Type' -like "application/json*")
+            {   
+                Write-Verbose "New-MSGraphGETRequest: Result is in JSON format. Converting to JSON."
+                $JSON = ConvertFrom-Json -InputObject $Result
+                if ($JSON.'@odata.nextLink')
+                {
+                    Write-Verbose "New-MSGraphGETRequest: Data output is more than 100 results. We will run script again with next data link."
+                    $EndResult = @()
+                    foreach ($Line in ($JSON).value)
+                    {
+                        $EndResult += $Line
+                    }
+                    While ($JSON.'@odata.nextLink')
+                    {
+                        Write-Verbose "New-MSGraphGETRequest: Data output is still more than 100 results. We will run script again with next data link."
+                        $JSON = (Invoke-WebRequest -UseBasicParsing -Headers $HeaderParameters -Uri $JSON.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
+                        foreach ($Line in ($JSON).value)
+                        {
+                            $EndResult += $Line
+                        }
+                        Write-Verbose "New-MSGraphGETRequest: Count is: $($EndResult.count)"
+                    }
+                }
+                elseif ($JSON.value)
+                {
+                    Write-Verbose "New-MSGraphGETRequest: Data output is less than 100 results. We will add the data to end result."
+                    $EndResult = $JSON.value
+                }
+                else
+                {
+                    Write-Verbose "New-MSGraphGETRequest: Data output is less than 100 results. We will add the data to end result."
+                    $EndResult = $JSON
+                }
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphGETRequest: Error in process of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphGETRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message       
+            break
+        }
+    }
+    end
+    {
+        Write-Verbose "New-MSGraphGETRequest: We've succesfully retrieved the end result. The end result will be returned."
+        return $EndResult
+    }
+}
+
+function New-MSGraphPOSTRequest
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [Alias("URI")]
+        [string]
+        $URL,
+        [Parameter(Mandatory = $true)]
+        [Alias('Data', 'Post')]
+        [object]
+        $JSON
+    )
+    begin
+    {
+        try
+        {
+            $global:ErrorList = [system.Collections.Generic.List[system.Object]]::new()
+            if ($global:Login -eq 'MSGraphAppSecret')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -AppPass $global:ApplicationSecret `
+                    -Tenant $global:TenantID
+            }
+            elseif ($global:Login -eq 'MSGraphCertificate')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -Thumbprint $global:Thumbprint `
+                    -Tenant $global:TenantID
+            }
+            else
+            {
+                Throw "You need to run one of these cmdlets: Connect-MSGraphAppSecret or Connect-MSGraphCertificate before you can continue. Exiting script..."
+                break
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphPOSTRequest: Error in begin of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphPOSTRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break
+        }
+    }
+    process
+    {
+        try
+        {
+            Write-Verbose "New-MSGraphPOSTRequest: Converting data to JSON format"
+            $global:JSON = ConvertTo-Json -InputObject $JSON 
+            Write-Verbose "New-MSGraphPOSTRequest: Posting JSON data to Microsoft Graph"
+            $EndResult = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -Body $global:JSON -ContentType application/json
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphPOSTRequest: Error in process of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphPOSTRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break 
+        }
+    }
+    end
+    {
+        Write-Verbose "New-MSGraphPOSTRequest: We've succesfully Posted the data to Microsoft Graph. The end result will be returned."
+        return $EndResult
+    }
+}
+
+function New-MSGraphPATCHRequest
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [Alias("URI")]
+        [string]
+        $URL,
+        [Parameter(Mandatory = $true)]
+        [Alias('Data', 'Post')]
+        [object]
+        $JSON
+    )
+    begin
+    {
+        try
+        {
+            $global:ErrorList = [system.Collections.Generic.List[system.Object]]::new()
+            if ($global:Login -eq 'MSGraphAppSecret')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -AppPass $global:ApplicationSecret `
+                    -Tenant $global:TenantID
+            }
+            elseif ($global:Login -eq 'MSGraphCertificate')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -Thumbprint $global:Thumbprint `
+                    -Tenant $global:TenantID
+            }
+            else
+            {
+                Throw "You need to run one of these cmdlets: Connect-MSGraphAppSecret or Connect-MSGraphCertificate before you can continue. Exiting script..."
+                break
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphPATCHRequest: Error in begin of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphPATCHRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break
+        }
+    }
+    process
+    {
+        try
+        {
+            Write-Verbose "New-MSGraphPATCHRequest: Converting data to JSON format"
+            $global:JSON = ConvertTo-Json -InputObject $JSON 
+            Write-Verbose "New-MSGraphPATCHRequest: Posting JSON data to Microsoft Graph"
+            $EndResult = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method Patch -Body $global:JSON -ContentType application/json
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphPATCHRequest: Error in process of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphPATCHRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break 
+        }
+    }
+    end
+    {
+        Write-Verbose "New-MSGraphPATCHRequest: We've succesfully Posted the data to Microsoft Graph. The end result will be returned."
+        return $EndResult
+    }
+}
+
+function New-MSGraphDELETERequest
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [Alias("URI")]
+        [string]
+        $URL,
+        [Parameter(Mandatory = $false)]
+        [Alias('Value', 'UserPrincipalName')]
+        [object]
+        $ID
+    )
+    begin
+    {
+        try
+        {
+            $global:ErrorList = [system.Collections.Generic.List[system.Object]]::new()
+            if ($global:Login -eq 'MSGraphAppSecret')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -AppPass $global:ApplicationSecret `
+                    -Tenant $global:TenantID
+            }
+            elseif ($global:Login -eq 'MSGraphCertificate')
+            {
+                Get-MSGRAPHOauthToken `
+                    -AppID $global:ApplicationID `
+                    -Thumbprint $global:Thumbprint `
+                    -Tenant $global:TenantID
+            }
+            else
+            {
+                Throw "You need to run one of these cmdlets: Connect-MSGraphAppSecret or Connect-MSGraphCertificate before you can continue. Exiting script..."
+                break
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphDELETERequest: Error in begin of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphDELETERequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break
+        }
+    }
+    process
+    {
+        try
+        {
+            if ($ID)
+            {
+        
+            }
+            else
+            {
+                $EndResult = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method Delete -ContentType application/json
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphDELETERequest: Error in process of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphDELETERequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message
+            break 
+        }
+    }
+    end
+    {
+        Write-Verbose "New-MSGraphDELETERequest: We've succesfully deleted (SOMETHING). The end result (NO RESULT) will be returned."
+        return $EndResult
+    }
+}
