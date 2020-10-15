@@ -18,7 +18,7 @@ function Connect-MSGraphCertificate
     {
         If ($global:login -eq 'MSGraphAppSecret')
         {
-            Write-Verbose "You're already logged on with ClientID and ClientScret. Keep in mind that Certificate is more safe."
+            Write-Verbose "Connect-MSGraphCertificate: You're already logged on with ClientID and ClientScret. Keep in mind that Certificate is more safe."
             $Confirmation = Read-Host 'You already logged on with ClientID and ClientSecret. Are you sure you want to proceed with Certificate? Type yes to continue.' -Verbose
             if (($Confirmation -eq 'y') -or ($Confirmation -eq 'yes') -or ($Confirmation -eq 'true'))
             {
@@ -82,7 +82,7 @@ function Connect-MSGraphAppSecret
     {
         If ($global:login -eq 'MSGraphCertificate')
         {
-            Write-Verbose "You're already logged on with ClientID and Certificate. Keep in mind that Certificate is more safe."
+            Write-Verbose "Connect-MSGraphAppSecret: You're already logged on with ClientID and Certificate. Keep in mind that Certificate is more safe."
             $Confirmation = Read-Host 'You already logged on with ClientID and Certificate. Are you sure you want to proceed with ClientSecret (less safe)? Type yes to continue.' -Verbose
             if (($Confirmation -eq 'y') -or ($Confirmation -eq 'yes') -or ($Confirmation -eq 'true'))
             {
