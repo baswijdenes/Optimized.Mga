@@ -150,58 +150,61 @@ function Get-MSGraphOauthToken
             $loginURL = "https://login.microsoft.com"
             $Resource = "https://graph.microsoft.com"
             Write-Verbose "Get-MSGRAPHOauthToken: Login URL is: $LoginUrl."
-            Write-Verbose "Get-MSGRAPHOauthToken: Resource is: $Resource."   
-            if ($AppPass)
+            Write-Verbose "Get-MSGRAPHOauthToken: Resource is: $Resource." 
+            if (($null -eq $global:AppPass) -and ($null -eq $global:CertLogin))
             {
-                $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($global:ApplicationSecret)
-                $TempPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-                Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: We will continue logging in with ApplicationSecret."
-                $global:Body = @{
-                    grant_type    = "client_credentials";
-                    resource      = $Resource;
-                    client_id     = $AppID;
-                    client_secret = $TempPass 
-                }
-            }
-            elseif ($Thumbprint)
-            { 
-                Write-Verbose "Get-MSGRAPHOauthToken: Thumbprint: We will continue logging in with Certificate."
-                if ($null -eq $global:Certificate)
+                if ($AppPass)
                 {
-                    if ($Thumbprint.length -eq '40')
+                    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($global:ApplicationSecret)
+                    $TempPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+                    Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: We will continue logging in with ApplicationSecret."
+                    $Body = @{
+                        grant_type    = "client_credentials";
+                        resource      = $Resource;
+                        client_id     = $AppID;
+                        client_secret = $TempPass 
+                    }
+                }
+                elseif ($Thumbprint)
+                { 
+                    Write-Verbose "Get-MSGRAPHOauthToken: Thumbprint: We will continue logging in with Certificate."
+                    if ($null -eq $global:Certificate)
                     {
-                        Write-Verbose "Get-MSGRAPHOauthToken: Thumbprint length is correct. We will continue searching for the cerrtificate in CurrentUser\My and LocalMachine\My."
-                        $Certificate = $null
+                        if ($Thumbprint.length -eq '40')
+                        {
+                            Write-Verbose "Get-MSGRAPHOauthToken: Thumbprint length is correct. We will continue searching for the cerrtificate in CurrentUser\My and LocalMachine\My."
+                            $Certificate = $null
+                        }
+                        else
+                        {
+                            throw 'The thumbprint length is incorrect. Make sure you paste the thumbprint correctly. Exiting script...'
+                            break
+                        }
+                        Write-Verbose "Get-MSGRAPHOauthToken: Starting search in CurrentUser\my."
+                        $global:Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
+                        if ($null -eq $global:Certificate)
+                        {
+                            Write-Verbose "Get-MSGRAPHOauthToken: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
+                            $global:Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
+                        }
+                        if ($null -eq $global:Certificate)
+                        {
+                            throw "We did not find a thumbprint under: $Thumbprint. Exiting script..."
+                            break
+                        }    
                     }
                     else
                     {
-                        throw 'The thumbprint length is incorrect. Make sure you paste the thumbprint correctly. Exiting script...'
-                        break
+                        Write-Verbose "Get-MSGRAPHOauthToken: We already obtained a certificate from a previous login. We will continue logging in."
                     }
-                    Write-Verbose "Get-MSGRAPHOauthToken: Starting search in CurrentUser\my."
-                    $global:Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
-                    if ($null -eq $global:Certificate)
-                    {
-                        Write-Verbose "Get-MSGRAPHOauthToken: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
-                        $global:Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
-                    }
-                    if ($null -eq $global:Certificate)
-                    {
-                        throw "We did not find a thumbprint under: $Thumbprint. Exiting script..."
-                        break
-                    }    
+                    $AssertionCert = [Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate]::new($AppID, $global:Certificate)
+                    $AuthContext = [Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext]::new("https://login.microsoftonline.com/$Tenant")
                 }
                 else
                 {
-                    Write-Verbose "Get-MSGRAPHOauthToken: We already obtained a certificate from a previous login. We will continue logging in."
+                    Throw "There is no Password nor Thumbprint. Exiting script..."
+                    break
                 }
-                $AssertionCert = [Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate]::new($AppID, $global:Certificate)
-                $AuthContext = [Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext]::new("https://login.microsoftonline.com/$Tenant")
-            }
-            else
-            {
-                Throw "There is no Password nor Thumbprint. Exiting script..."
-                break
             }
         }
         catch
@@ -319,7 +322,7 @@ function Get-MSGraphOauthToken
     {
         if ($global:AppPass)
         {
-            Write-Verbose "Get-MSGRAPHOauthToken: ClientSecret: We have succesfully retrieved the Oauth access token. We will continue the script."
+            Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: We have succesfully retrieved the Oauth access token. We will continue the script."
             $BSTR = $null
         } 
         elseif ($global:CertLogin)
@@ -405,6 +408,47 @@ function New-MSGraphGetRequest
                     }
                     While ($JSON.'@odata.nextLink')
                     {
+                        [datetime]$UnixDateTime = '1970-01-01 00:00:00'
+                        $Date = Get-Date
+                        $UTCDate = [System.TimeZoneInfo]::ConvertTimeToUtc($Date)
+                        if ($global:AppPass)
+                        {
+                            Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: Oauth token already exists from previously running cmdlets."
+                            Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: Running test to see if Oauth token expired."
+                            $OauthExpiryTime = $UnixDateTime.AddSeconds($global:AppPass.expires_on)
+                            if ($OauthExpiryTime -le $UTCDate)
+                            {
+                                Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: Oauth token expired. Emptying Oauth variable and re-running function."
+                                $global:AppPass = $null
+                                Get-MSGRAPHOauthToken -URL $URL `
+                                    -AppID $ApplicationID `
+                                    -AppPass $ApplicationSecret `
+                                    -Tenant $TenantID
+                            }
+                            else 
+                            {
+                                Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: Oauth token from last run is still active."
+                            }
+                        }
+                        else
+                        {
+                            Write-Verbose "Get-MSGRAPHOauthToken: Certificate: Oauth token already exists from previously running cmdlets."
+                            Write-Verbose "Get-MSGRAPHOauthToken: Certificate: Running test to see if Oauth token expired."
+                            $OauthExpiryTime = $global:CertLogin.Result.ExpiresOn.UtcDateTime
+                            if ($OauthExpiryTime -le $UTCDate)
+                            {
+                                Write-Verbose "Get-MSGRAPHOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
+                                $global:CertLogin = $null
+                                Get-MSGRAPHOauthToken `
+                                    -AppID $ApplicationID `
+                                    -Thumbprint $Thumbprint `
+                                    -Tenant $TenantID
+                            }
+                            else 
+                            {
+                                Write-Verbose "Get-MSGRAPHOauthToken: Certificate: Oauth token from last run is still active."
+                            }
+                        }
                         Write-Verbose "New-MSGraphGETRequest: Data output is still more than 100 results. We will run script again with next data link."
                         $JSON = (Invoke-WebRequest -UseBasicParsing -Headers $HeaderParameters -Uri $JSON.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
                         foreach ($Line in ($JSON).value)
@@ -713,4 +757,119 @@ function New-MSGraphDeleteRequest
         Write-Verbose "New-MSGraphDELETERequest: We've succesfully deleted (SOMETHING). The end result (NO RESULT) will be returned."
         return $EndResult
     }
+}
+
+function New-MSGraphPreGetRequest
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("ListUsers", "ListGroups", "ListApplications", "ListDirectoryAudits", "ListSignIns")]
+        [string]
+        $Query,
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Beta
+    )
+    begin
+    {
+        if ($Beta)
+        {
+            Write-Verbose "New-MSGraphPreGetRequest: BETA: We will get the report $Query from BETA."
+        }
+        Else
+        {
+            Write-Verbose "New-MSGraphPreGetRequest: v1.0: We will get the report $Query from v1.0. If you want to use the Beta version, use the -Beta parameter."
+        }
+    }
+    Process
+    {
+        try
+        {
+            switch ($Query)
+            {
+                "ListUsers"
+                {
+                    if ($Beta)
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: BETA: https://graph.microsoft.com/beta/users"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/beta/users'
+                    }
+                    Else
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: v1.0: https://graph.microsoft.com/v1.0/users"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/v1.0/users'
+                    }
+                }
+                "ListGroups"
+                {
+                    if ($Beta)
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: BETA: https://graph.microsoft.com/beta/groups"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/beta/groups'
+                    }
+                    Else
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: v1.0: https://graph.microsoft.com/v1.0/groups"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/v1.0/groups'
+                    }
+                }
+                "ListApplications"
+                {
+                    if ($Beta)
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: BETA: https://graph.microsoft.com/beta/applications"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/beta/applications'
+                    }
+                    Else
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: v1.0: https://graph.microsoft.com/v1.0/applications"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/v1.0/applications'
+                    }
+                }
+                "ListDirectoryAudits"
+                {
+                    if ($Beta)
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: BETA: https://graph.microsoft.com/beta/auditLogs/directoryAudits"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/beta/auditLogs/directoryAudits'
+                    }
+                    Else
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: v1.0: https://graph.microsoft.com/v1.0/auditLogs/directoryAudits"
+                        New-MSGraphGetRequest -URL 'hhttps://graph.microsoft.com/v1.0/auditLogs/directoryAudits'
+                    }
+                } 
+                "ListSignIns"
+                {
+                    if ($Beta)
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: BETA: https://graph.microsoft.com/beta/auditLogs/signIns"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/beta/auditLogs/signIns'
+                    }
+                    Else
+                    {
+                        Write-Verbose "New-MSGraphPreGetRequest: v1.0: https://graph.microsoft.com/v1.0/auditLogs/signIns"
+                        New-MSGraphGetRequest -URL 'https://graph.microsoft.com/v1.0/auditLogs/signIns'
+                    }
+                }
+
+            }
+        }
+        catch
+        {
+            $Object = [PSCustomObject] @{
+                Information  = "New-MSGraphPreGetRequest: Error in process of function."
+                ErrorMessage = "$($_.Exception.Message)"
+            }
+            $global:ErrorList.Add($Object) 
+            Write-Warning 'New-MSGraphPreGetRequest: To see if there are more errors please run: $global:ErrorList.'
+            throw $_.Exception.Message       
+            break
+        }
+    }
+    end
+    {
+        Write-Verbose "New-MSGraphPreGetRequest: Your report will be returned by New-MSGraphPreGetRequest"
+    }   
 }
