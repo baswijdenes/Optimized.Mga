@@ -101,14 +101,11 @@ function Connect-MSGraphAppSecret
     process
     {
         try
-        {
-            $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($global:ApplicationSecret)
-            $TempPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+        {        
             Get-MSGRAPHOauthToken `
                 -AppID $global:ApplicationID `
-                -AppPass $TempPass `
+                -AppPass $global:ApplicationSecret `
                 -Tenant $global:TenantID
-            $BSTR = $null
         }
         catch
         {
@@ -149,19 +146,21 @@ function Get-MSGraphOauthToken
     begin
     {
         try
-        {     
+        {  
             $loginURL = "https://login.microsoft.com"
             $Resource = "https://graph.microsoft.com"
             Write-Verbose "Get-MSGRAPHOauthToken: Login URL is: $LoginUrl."
             Write-Verbose "Get-MSGRAPHOauthToken: Resource is: $Resource."   
             if ($AppPass)
             {
+                $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($global:ApplicationSecret)
+                $TempPass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
                 Write-Verbose "Get-MSGRAPHOauthToken: ApplicationSecret: We will continue logging in with ApplicationSecret."
                 $global:Body = @{
                     grant_type    = "client_credentials";
                     resource      = $Resource;
                     client_id     = $AppID;
-                    client_secret = $AppPass
+                    client_secret = $TempPass 
                 }
             }
             elseif ($Thumbprint)
@@ -321,6 +320,7 @@ function Get-MSGraphOauthToken
         if ($global:AppPass)
         {
             Write-Verbose "Get-MSGRAPHOauthToken: ClientSecret: We have succesfully retrieved the Oauth access token. We will continue the script."
+            $BSTR = $null
         } 
         elseif ($global:CertLogin)
         {
@@ -333,88 +333,7 @@ function Get-MSGraphOauthToken
     }
 }
 
-function Search-MSGraphCertByThumbprint
-{
-    param (
-        [parameter(mandatory = $true)]
-        [string]
-        $Thumbprint
-    )
-    begin
-    {
-        try
-        {
-            if ($null -eq $global:Certificate)
-            {
-                if ($Thumbprint.length -eq '40')
-                {
-                    Write-Verbose "Search-MSGRAPHCertByThumbprint: Thumbprint length is correct. We will continue searching for the cerrtificate in CurrentUser\My and LocalMachine\My."
-                    $Certificate = $null
-                }
-                else
-                {
-                    throw 'The thumbprint length is incorrect. Make sure you paste the thumbprint correctly. Exiting script...'
-                    break
-                }
-            }
-            else
-            {
-                Write-Verbose "Search-MSGRAPHCertByThumbprint: We already obtained a certificate from a previous login. We will continue logging in."
-            }
-        }
-        catch
-        {
-            $Object = [PSCustomObject] @{
-                Information  = "Search-MSGRAPHCertByThumbprint: Error in begin of function."
-                ErrorMessage = "$($_.Exception.Message)"
-            }
-            $global:ErrorList.Add($Object) 
-            Write-Warning 'Search-MSGRAPHCertByThumbprint: To see if there are more errors please run: $global:ErrorList.'
-            throw $_.Exception.Message
-            break
-        }
-        
-    }
-    process
-    {
-        try
-        {
-            if ($null -eq $global:Certificate)
-            {
-                Write-Verbose "Search-MSGRAPHCertByThumbprint: Starting search in CurrentUser\my."
-                $global:Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
-                if ($null -eq $global:Certificate)
-                {
-                    Write-Verbose "Search-MSGRAPHCertByThumbprint: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
-                    $Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
-                }
-                if ($null -eq $global:Certificate)
-                {
-                    throw "We did not find a thumbprint under: $Thumbprint. Exiting script..."
-                    break
-                }
-            }
-        }
-        catch
-        {
-            $Object = [PSCustomObject] @{
-                Information  = "Search-MSGRAPHCertByThumbprint: Error in process of function."
-                ErrorMessage = "$($_.Exception.Message)"
-            }
-            $global:ErrorList.Add($Object) 
-            Write-Warning 'Search-MSGRAPHCertByThumbprint: To see if there are more errors please run: $global:ErrorList.'
-            throw $_.Exception.Message
-            break
-        }
-    }
-    end
-    {
-        Write-Verbose "Search-MSGRAPHCertByThumbprint: Certificate has been found. Returning Certificate."
-        Return $Certificate
-    }
-}
-
-function New-MSGraphGETRequest
+function New-MSGraphGetRequest
 {
     [CmdletBinding()]
     param (
@@ -526,7 +445,7 @@ function New-MSGraphGETRequest
     }
 }
 
-function New-MSGraphPOSTRequest
+function New-MSGraphPostRequest
 {
     [CmdletBinding()]
     param (
@@ -580,8 +499,24 @@ function New-MSGraphPOSTRequest
     {
         try
         {
-            Write-Verbose "New-MSGraphPOSTRequest: Converting data to JSON format"
-            $global:JSON = ConvertTo-Json -InputObject $JSON 
+            try
+            {
+                $null = ConvertFrom-Json $JSON -ErrorAction Stop;
+                $validJson = $true;
+            }
+            catch
+            {
+                $validJson = $false;
+            }       
+            if ($validJson)
+            {
+                Write-Verbose "New-MSGraphPATCHRequest: Output is already in JSON format"
+            }
+            else
+            {
+                Write-Verbose "New-MSGraphPATCHRequest: Converting data to JSON format."
+                $global:JSON = ConvertTo-Json -InputObject $JSON
+            }
             Write-Verbose "New-MSGraphPOSTRequest: Posting JSON data to Microsoft Graph"
             $EndResult = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -Body $global:JSON -ContentType application/json
         }
@@ -604,7 +539,7 @@ function New-MSGraphPOSTRequest
     }
 }
 
-function New-MSGraphPATCHRequest
+function New-MSGraphPatchRequest
 {
     [CmdletBinding()]
     param (
@@ -658,9 +593,25 @@ function New-MSGraphPATCHRequest
     {
         try
         {
-            Write-Verbose "New-MSGraphPATCHRequest: Converting data to JSON format"
-            $global:JSON = ConvertTo-Json -InputObject $JSON 
-            Write-Verbose "New-MSGraphPATCHRequest: Posting JSON data to Microsoft Graph"
+            try
+            {
+                $null = ConvertFrom-Json $JSON -ErrorAction Stop;
+                $validJson = $true;
+            }
+            catch
+            {
+                $validJson = $false;
+            }       
+            if ($validJson)
+            {
+                Write-Verbose "New-MSGraphPATCHRequest: Output is already in JSON format"
+            }
+            else
+            {
+                Write-Verbose "New-MSGraphPATCHRequest: Converting data to JSON format."
+                $global:JSON = ConvertTo-Json -InputObject $JSON
+            }
+            Write-Verbose "New-MSGraphPATCHRequest: Posting JSON data to Microsoft Graph."
             $EndResult = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method Patch -Body $global:JSON -ContentType application/json
         }
         catch
@@ -682,7 +633,7 @@ function New-MSGraphPATCHRequest
     }
 }
 
-function New-MSGraphDELETERequest
+function New-MSGraphDeleteRequest
 {
     [CmdletBinding()]
     param (
