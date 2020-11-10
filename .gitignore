@@ -3,3 +3,4 @@ function Add-MSGraphGroupMember.ps1
 function Search-MSGRaphCertbyThumbprint.ps1
 Archived
 Test
+Variables.ps1
