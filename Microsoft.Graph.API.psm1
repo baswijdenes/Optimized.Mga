@@ -1,5 +1,5 @@
 <# START USER FUNCTIONS #>
-function Connect-MSGraph
+function Connect-MSGraphAPI
 {
     <#
     .SYNOPSIS
@@ -156,7 +156,7 @@ function Connect-MSGraph
     }
 }
 
-function Disconnect-MSGraph
+function Disconnect-MSGraphAPI
 {    
     <#
     .SYNOPSIS
