@@ -1,12 +1,14 @@
 # Microsoft.Graph.API
 
+Don't you wish you for a Microsoft Graph module which handles batching, the token and throttling for you, but where you can just enter your own URL so you aren't restricted to the limitations of the official Microsoft Module and even includes a way to speed up the process?
+
 * [PowerShell Gallery](https://www.powershellgallery.com/packages/Microsoft.Graph.API)
 * [Submit an issue](https://github.com/baswijdenes/Microsoft.Graph.API/issues)
 * [My blog](https://bwit.blog/)
 
 ## Are you new with the Microsoft Graph API? 
 * [Here is a link to the official Microsoft Graph API SDK for PowerShell](https://docs.microsoft.com/en-us/graph/powershell/get-started)
-* [Here is a link to post on my blog about starting with Microsoft Graph API.](https://bwit.blog/how-to-start-with-microsoft-graph-in-powershell/)
+* [Here is a link to post on my blog about starting with Microsoft Graph API](https://bwit.blog/how-to-start-with-microsoft-graph-in-powershell/)
 
 ## What makes your module different from the official Microsoft Graph SDK for PowerShell?
 

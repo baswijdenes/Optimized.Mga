@@ -925,10 +925,16 @@ function Optimize-Mga {
             }
             if ($Request -eq 'Patch-Mga') {
                 Write-Verbose 'Optimize-Mga: Batching last Patch-Mga.'
+                if ($GroupedInputObject.count -gt 1) {
                 $GroupedInputObject = [PSCustomObject] @{
                     "members@odata.bind" = $GroupedInputObject
                 }
-                Patch-Mga -InputObject $GroupedInputObject -URL $URL
+            } else {
+                $GroupedInputObject = [PSCustomObject] @{
+                    "@odata.id" = $GroupedInputObject
+                }
+            }
+            Patch-Mga -InputObject $GroupedInputObject -URL $URL
             }
             if ($Request -eq 'Delete-Mga') {
                 Write-Verbose 'Optimize-Mga: Batching last Delete-Mga.'
