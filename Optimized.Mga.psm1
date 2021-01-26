@@ -180,8 +180,11 @@ function Get-Mga {
                 }
             }
             else {
-                Debug-MgaErrorMessage -ErrorMessage $_ -ErrorAction Stop
+                throw $_.Exception.Message
             }
+        }
+        catch {
+            throw $_.Exception.Message
         }
     }
     end {
@@ -206,8 +209,8 @@ function Post-Mga {
     process {
         try {
             if ($InputObject) {
-            Write-Verbose "Post-Mga: Posting InputObject to Microsoft.Graph.API."
-            $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -Body $InputObject -ContentType application/json
+                Write-Verbose "Post-Mga: Posting InputObject to Microsoft.Graph.API."
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -Body $InputObject -ContentType application/json
             }
             else {
                 $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -ContentType application/json    
@@ -223,8 +226,11 @@ function Post-Mga {
                 $Result = Post-Mga -URL $URL -InputObject $InputObject
             }
             else {
-                Debug-MgaErrorMessage -ErrorMessage $_ -ErrorAction Stop
+                throw $_.Exception.Message
             }
+        }
+        catch {
+            throw $_.Exception.Message
         }
     }
     end {
@@ -241,16 +247,27 @@ function Patch-Mga {
         $URL,
         [Parameter(Mandatory = $true)]
         [object]
-        $InputObject
+        $InputObject,
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Batch
     )
     begin {
         Update-MgaOauthToken
         $ValidateJson = ConvertTo-MgaJson -InputObject $InputObject -Validate
+        if ($Batch -eq $true) {
+            Write-Warning 'Patch-Mga: begin: Parameter Batch will only work when the InputObject contains property: members@odata.bind. If this is not the case -Batch will be ignored.'
+        }
     }
     process {
         try {
             if (($ValidateJson -eq $false) -and (($InputObject."members@odata.bind").count -gt 20)) {
-                Optimize-Mga -InputObject $InputObject -URL $URL -Request 'Patch-Mga'
+                if ($Batch -eq $true) {
+                    Optimize-Mga -InputObject $InputObject -URL $URL -Request 'Patch-Mga' -Batch
+                }
+                else {
+                    Optimize-Mga -InputObject $InputObject -URL $URL -Request 'Patch-Mga'     
+                }
             }
             else {
                 $InputObject = ConvertTo-MgaJson -InputObject $InputObject
@@ -268,8 +285,11 @@ function Patch-Mga {
                 $Result = Patch-Mga -URL $URL -InputObject $InputObject
             }
             else {
-                Debug-MgaErrorMessage -ErrorMessage $_ -ErrorAction Stop
+                throw $_.Exception.Message
             }
+        }
+        catch {
+            throw $_.Exception.Message
         }
     }
     end {
@@ -327,8 +347,11 @@ function Delete-Mga {
                 }
             }
             else {
-                Debug-MgaErrorMessage -ErrorMessage $_ -ErrorAction Stop
+                throw $_.Exception.Message
             }
+        }
+        catch {
+            throw $_.Exception.Message
         }
     }
     end {
@@ -632,7 +655,7 @@ function Receive-MgaOauthToken {
             [datetime]$UnixDateTime = '1970-01-01 00:00:00'
             $Date = Get-Date
             $UTCDate = [System.TimeZoneInfo]::ConvertTimeToUtc($Date)
-            if ($null -ne $Thumbprint) { 
+            if ($thumbprint.length -gt 5) { 
                 Write-Verbose "Receive-MgaOauthToken: Certificate: We will continue logging in with Certificate."
                 if (($null -eq $global:Certificate) -or ($Thumbprint -ne ($global:Certificate).Thumbprint)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Starting search in CurrentUser\my."
@@ -856,13 +879,16 @@ function Optimize-Mga {
         [Parameter(Mandatory = $false)]
         $InputObject,
         [Parameter(Mandatory = $true)]
-        [ValidateSet('Batch-Mga', 'Patch-Mga','Delete-Mga')]
+        [ValidateSet('Batch-Mga', 'Patch-Mga', 'Delete-Mga')]
         $Request,
         [Parameter(Mandatory = $false)]
-        $URL
+        $URL,
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Batch
     )
     begin {
-        Write-Verbose 'Optimize-Mga: InputObject is greater than 20. Splitting up request.'
+        Write-Verbose 'Optimize-Mga: InputObject is multiple requests. Splitting up request.'
     } 
     process {  
         $GroupedInputObject = [system.Collections.Generic.List[system.Object]]::new()
@@ -883,12 +909,30 @@ function Optimize-Mga {
                     $GroupedInputObject = [PSCustomObject] @{
                         "members@odata.bind" = $GroupedInputObject
                     }
-                    Write-Verbose 'Optimize-Mga: patching request.'
-                    Patch-Mga -InputObject $GroupedInputObject -URL $URL
+                    if ($Batch -eq $true) {
+                        if ($null -eq $PatchToBatch) {
+                            
+                            $PatchToBatch = [system.Collections.Generic.List[system.Object]]::new()
+                        }
+                        $ToBatch = [PSCustomObject]@{
+                            Method = 'PATCH'
+                            Url    = $URL
+                            Body   = $GroupedInputObject
+                        }
+                        $PatchToBatch.Add($ToBatch)
+                    }
+                    else {
+                        Write-Verbose 'Optimize-Mga: patching request.'
+                        Patch-Mga -InputObject $GroupedInputObject -URL $URL
+                    }
                     $GroupedInputObject = [system.Collections.Generic.List[system.Object]]::new()
                 }
             }
         }
+        if (($Batch -eq $true) -and ($Request -eq 'Patch-Mga')) {
+            Write-Verbose 'Optimize-Mga: Batching Patch to Batch-Mga.'
+            Batch-Mga -InputObject $PatchToBatch
+        } 
         if ($Request -eq 'Delete-Mga') {
             if ($InputObject."members@odata.bind") {
                 foreach ($Line in $InputObject."members@odata.bind") {
@@ -926,68 +970,31 @@ function Optimize-Mga {
             if ($Request -eq 'Patch-Mga') {
                 Write-Verbose 'Optimize-Mga: Batching last Patch-Mga.'
                 if ($GroupedInputObject.count -gt 1) {
-                $GroupedInputObject = [PSCustomObject] @{
-                    "members@odata.bind" = $GroupedInputObject
+                    $GroupedInputObject = [PSCustomObject] @{
+                        "members@odata.bind" = $GroupedInputObject
+                    }
                 }
-            } else {
-                $GroupedInputObject = [PSCustomObject] @{
-                    "@odata.id" = $GroupedInputObject
+                else {
+                    $GroupedInputObject = [PSCustomObject] @{
+                        "@odata.id" = $GroupedInputObject
+                    }
                 }
-            }
-            Patch-Mga -InputObject $GroupedInputObject -URL $URL
+                Patch-Mga -InputObject $GroupedInputObject -URL $URL
+
             }
             if ($Request -eq 'Delete-Mga') {
                 Write-Verbose 'Optimize-Mga: Batching last Delete-Mga.'
-                if ($GroupedInputObject."members@odata.bind") {
+                if ($InputObject."members@odata.bind") {   
                     Delete-Mga -InputObject $OdataBind -URL $URL 
                 }
-                elseif ($GroupedInputObject) {
-                    {
-                        Batch-Mga -InputObject $GroupedInputObject
-                    }
+                else {
+                    Batch-Mga -InputObject $GroupedInputObject
                 }
             }
         }
     }
     end {
         return $Results
-    }
-}
-
-function Debug-MgaErrorMessage {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        $ErrorMessage
-    )
-    
-    begin {
-        Write-Verbose 'Debug-MgaErrorMessage: Trying to debug the error to show you a clear error message.'
-    }
-    process {
-        if ($ErrorMessage.Exception.Response -like "*WebResponse*") {
-            $ErrorList = [System.Collections.Generic.List[System.Object]]::new()
-            $ErrorObject = [PSCustomObject]@{
-                ErrorMessage = $ErrorMessage.Exception.Message
-                Message      = ($ErrorMessage.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue).Error.Message
-                Code         = ($ErrorMessage.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue).Error.Code
-                Category     = $ErrorMessage.CategoryInfo
-                Response     = $ErrorMessage.Exception.Response
-            }
-            $ErrorList.Add($ErrorObject)
-        }
-        else {
-            $OtherError = $ErrorMessage
-        }
-    }
-    end {
-        if ($OtherError) {
-            throw $ErrorMessage
-        }
-        else {
-            Write-Output $ErrorList
-            throw 'We received a Web Exception Error and tried to debug it for you. See the logging above. Use $Error[1] to see full error message.'
-        }
     }
 }
 <# END INTERNAL FUNCTIONS #>
