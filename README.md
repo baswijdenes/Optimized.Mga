@@ -118,7 +118,8 @@ Delete-Mga -URL $UserList
 ## Connect-Mga
 By selecting one of these parameters you log on with the following:
 * **ClientSecret**: Will log you on with a ClientSecret.
-* **Thumbprint**: Will log you on with a Certificate.
+* **Certificate**: Will log you on with a Certificate.
+* **Thumbprint**: Will search for a Certificate under thumbprint on local device and log you on with a Certificate.
 * **UserCredentials**: Will log you on with basic authentication.
 * **RedirectUri**: Will log you on with MFA Authentication.
 
@@ -128,9 +129,12 @@ If you want to know more about how to log in via MFA with a RedirectUri, follow 
 
 ### Examples 
 ````PowerShell
-Connect-Mga -ClientSecret '1yD3h~.KgROPO.K1sbRF~XXXXXXXXXXXXX' -applicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' 
+Connect-Mga -ClientSecret '1yD3h~.KgROPO.K1sbRF~XXXXXXXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' 
 
-Connect-Mga -Thumbprint '3A7328F1059E9802FAXXXXXXXXXXXXXX' -applicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX.onmicrosoft.com' 
+$Cert = get-ChildItem 'Cert:\LocalMachine\My\XXXXXXXXXXXXXXXXXXX'
+Connect-Mga -Certificate $Cert -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX.onmicrosoft.com'
+
+Connect-Mga -Thumbprint '3A7328F1059E9802FAXXXXXXXXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX.onmicrosoft.com' 
 
 Connect-Mga -UserCredentials $Cred -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
 

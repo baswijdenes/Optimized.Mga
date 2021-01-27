@@ -2,9 +2,11 @@
 function Connect-Mga {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Thumbprint')]
         [string]
         $Thumbprint, 
+        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        $Certificate,
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
         [string]
         $ClientSecret, 
@@ -39,11 +41,18 @@ function Connect-Mga {
     }
     process {
         if ($Thumbprint) {
-            Write-Verbose "Connect-Mga: Thumbprint: Logging in with certificate."
+            Write-Verbose "Connect-Mga: Thumbprint: Logging in with Thumbprint."
             Receive-MgaOauthToken `
                 -AppID $ApplicationID `
                 -Tenant $Tenant `
                 -Thumbprint $Thumbprint 
+        }
+        elseif ($Certificate) {
+            Write-Verbose "Connect-Mga: Certificate: Logging in with certificate."
+            Receive-MgaOauthToken `
+                -AppID $ApplicationID `
+                -Tenant $Tenant `
+                -Certificate $Certificate 
         }
         elseif ($ClientSecret) {
             Write-Verbose "Connect-Mga: RedirectUri: Logging in with RedirectUri."
@@ -82,20 +91,22 @@ function Disconnect-Mga {
     }
     process {
         try {
-            $global:Tenant = $null
-            $global:ApplicationID = $null
-            $global:headerParameters = $null
+            $global:GLTenant = $null
+            $global:GLApplicationID = $null
+            $global:GLheaderParameters = $null
             $Global:LoginType = $null
-            $global:AppPass = $null
-            $global:Cert = $null
-            $global:RU = $null
-            $global:Basic = $null
-            $global:Certificate = $null
-            $global:Secret = $null
-            $global:Thumbprint = $null
-            $global:RedirectUri = $null
-            $global:LoginScope = $null
-            $global:UserCredentials = $null
+            $global:GLAppPass = $null
+            $global:GLTPrint = $null
+            $global:GLRU = $null
+            $global:GLBasic = $null
+            $global:GLTPCertificate = $null
+            $global:GLCertificate = $null
+            $global:GLCert = $null
+            $global:GLSecret = $null
+            $global:GLThumbprint = $null
+            $global:GLRedirectUri = $null
+            $global:GLLoginScope = $null
+            $global:GLUserCredentials = $null
         }
         catch {
             throw $_.Exception.Message
@@ -122,7 +133,7 @@ function Get-Mga {
     process {
         try {
             Write-Verbose "Get-Mga: Getting results from $URL."
-            $Result = Invoke-WebRequest -UseBasicParsing -Headers $global:HeaderParameters -Uri $URL -Method get
+            $Result = Invoke-WebRequest -UseBasicParsing -Headers $global:GLHeaderParameters -Uri $URL -Method get
             if ($result.Headers.'Content-Type' -like "application/octet-stream*") {
                 Write-Verbose "Get-Mga: Result is in Csv format. Converting to Csv and returning end result."
                 $EndResult = ConvertFrom-Csv -InputObject $Result
@@ -210,10 +221,10 @@ function Post-Mga {
         try {
             if ($InputObject) {
                 Write-Verbose "Post-Mga: Posting InputObject to Microsoft.Graph.API."
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -Body $InputObject -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method post -Body $InputObject -ContentType application/json
             }
             else {
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method post -ContentType application/json    
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method post -ContentType application/json    
             }
         }
         catch [System.Net.WebException] {
@@ -272,7 +283,7 @@ function Patch-Mga {
             else {
                 $InputObject = ConvertTo-MgaJson -InputObject $InputObject
                 Write-Verbose "Patch-Mga: Patching InputObject to Microsoft.Graph.API."
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method Patch -Body $InputObject -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method Patch -Body $InputObject -ContentType application/json
             }
         }
         catch [System.Net.WebException] {
@@ -324,11 +335,11 @@ function Delete-Mga {
             elseif ($InputObject) {
                 Write-Verbose "Delete-Mga: Deleting InputObject on $URL to Microsoft.Graph.API."
                 $InputObject = ConvertTo-MgaJson -InputObject $InputObject
-                $Result = Invoke-RestMethod -Uri $URL -body $InputObject -Headers $global:headerParameters -Method Delete -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -body $InputObject -Headers $global:GLheaderParameters -Method Delete -ContentType application/json
             }
             else {
                 Write-Verbose "Delete-Mga: Deleting conent on $URL to Microsoft.Graph.API."
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:headerParameters -Method Delete -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method Delete -ContentType application/json
             }
 
         }
@@ -582,30 +593,36 @@ function Update-MgaOauthToken {
     [CmdletBinding()]
     param (
     )
-    if ($null -ne $global:AppPass) {
+    if ($null -ne $global:GLAppPass) {
         Receive-MgaOauthToken `
-            -AppID $global:ApplicationID `
-            -Tenant $global:Tenant `
-            -ClientSecret $global:Secret
+            -AppID $global:GLApplicationID `
+            -Tenant $global:GLTenant `
+            -ClientSecret $global:GLSecret
     }
-    elseif ($null -ne $global:Cert) {
+    elseif ($null -ne $global:GLCert) {
         Receive-MgaOauthToken `
-            -AppID $global:ApplicationID `
-            -Tenant $global:Tenant `
-            -Thumbprint $global:Thumbprint 
+            -AppID $global:GLApplicationID `
+            -Tenant $global:GLTenant `
+            -Certificate $global:GLCertificate
     }
-    elseif ($null -ne $global:RU) {
+    elseif ($null -ne $global:GLTPrint) {
         Receive-MgaOauthToken `
-            -AppID $global:ApplicationID `
-            -Tenant $global:Tenant `
-            -RedirectUri $global:RedirectUri `
-            -LoginScope $global:LoginScope
+            -AppID $global:GLApplicationID `
+            -Tenant $global:GLTenant `
+            -Thumbprint $global:GLThumbprint 
     }
-    elseif ($null -ne $global:Basic) {
+    elseif ($null -ne $global:GLRU) {
         Receive-MgaOauthToken `
-            -AppID $global:ApplicationID `
-            -Tenant $global:Tenant `
-            -UserCredentials $global:UserCredentials 
+            -AppID $global:GLApplicationID `
+            -Tenant $global:GLTenant `
+            -RedirectUri $global:GLRedirectUri `
+            -LoginScope $global:GLLoginScope
+    }
+    elseif ($null -ne $global:GLBasic) {
+        Receive-MgaOauthToken `
+            -AppID $global:GLApplicationID `
+            -Tenant $global:GLTenant `
+            -UserCredentials $global:GLUserCredentials 
     }
     else {
         Throw "You need to run Connect-Mga before you can continue. Exiting script..."
@@ -621,9 +638,11 @@ function Receive-MgaOauthToken {
         [Parameter(Mandatory = $true)]
         [string]
         $Tenant,
-        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Thumbprint')]
         [string]
         $Thumbprint, 
+        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        $Certificate, 
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
         [string]
         $ClientSecret, 
@@ -640,8 +659,8 @@ function Receive-MgaOauthToken {
     )
     begin {
         try { 
-            $global:Tenant = $Tenant
-            $global:ApplicationID = $ApplicationID
+            $global:GLTenant = $Tenant
+            $global:GLApplicationID = $ApplicationID
             if ($null -eq $LoginScope) {
                 [System.Collections.Generic.List[String]]$LoginScope = @('https://graph.microsoft.com/.default')
             }
@@ -657,24 +676,21 @@ function Receive-MgaOauthToken {
             $UTCDate = [System.TimeZoneInfo]::ConvertTimeToUtc($Date)
             if ($thumbprint.length -gt 5) { 
                 Write-Verbose "Receive-MgaOauthToken: Certificate: We will continue logging in with Certificate."
-                if (($null -eq $global:Certificate) -or ($Thumbprint -ne ($global:Certificate).Thumbprint)) {
+                if (($null -eq $global:GLTPCertificate) -or ($Thumbprint -ne ($global:GLTPCertificate).Thumbprint)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Starting search in CurrentUser\my."
-                    $Certificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
-                    if ($null -eq $Certificate) {
+                    $TPCertificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
+                    if ($null -eq $TPCertificate) {
                         Write-Verbose "Receive-MgaOauthToken: Certificate not found in CurrentUser. Continuing in LocalMachine\my."
-                        $Certificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
+                        $TPCertificate = Get-Item Cert:\localMachine\My\$Thumbprint -ErrorAction SilentlyContinue
                     }
-                    if ($null -eq $Certificate) {
+                    if ($null -eq $TPCertificate) {
                         throw "We did not find a certificate under: $Thumbprint. Exiting script..."
                     }
                 }
                 else {
-                    $Certificate = $global:Certificate
+                    $TPCertificate = $global:GLTPCertificate
                     Write-Verbose "Receive-MgaOauthToken: Certificate: We already obtained a certificate from a previous login. We will continue logging in."
                 }
-            }
-            else {
-                Write-Verbose "Receive-MgaOauthToken: A previous Login already exists."
             }
         }
         catch {
@@ -688,28 +704,28 @@ function Receive-MgaOauthToken {
                     $Secret = $ClientSecret | ConvertTo-SecureString -AsPlainText -Force
                 }
                 $TempPass = [PSCredential]::new(".", $Secret).GetNetworkCredential().Password
-                if (!($global:AppPass)) {
+                if (!($global:GLAppPass)) {
                     Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: This is the first time logging in with a ClientSecret."
                     $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($ApplicationID).WithTenantId($Tenant).WithClientSecret($TempPass).Build()
-                    $global:AppPass = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:AppPass.result.AccessToken) {
+                    $global:GLAppPass = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:GLAppPass.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:headerParameters = @{
-                            Authorization = "Bearer $($global:AppPass.result.AccessToken)"
+                        $global:GLheaderParameters = @{
+                            Authorization = "Bearer $($global:GLAppPass.result.AccessToken)"
                         }
                         $Global:LoginType = 'ClientSecret'
-                        $global:Secret = $Secret
+                        $global:GLSecret = $Secret
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:AppPass.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:GLAppPass.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:AppPass = $null
+                        $global:GLAppPass = $null
                         Receive-MgaOauthToken `
                             -AppID $ApplicationID `
                             -Tenant $Tenant `
@@ -720,30 +736,63 @@ function Receive-MgaOauthToken {
                     }
                 }
             }
-            elseif ($Thumbprint) {
-                if (!($global:Cert)) {
+            elseif ($Certificate) {
+                if (!($global:GLCert)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: This is the first time logging in with a Certificate."
                     $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($AppID).WithTenantId($tenant).WithCertificate($Certificate).Build()  
-                    $global:Cert = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:Cert.result.AccessToken) {
+                    $global:GLCert = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:GLCert.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:headerParameters = @{
-                            Authorization = "Bearer $($global:Cert.result.AccessToken)"
+                        $global:GLheaderParameters = @{
+                            Authorization = "Bearer $($global:GLCert.result.AccessToken)"
                         }
-                        $Global:LoginType = 'Thumbprint'
-                        $global:Thumbprint = $Thumbprint
-                        $global:Certificate = $Certificate
+                        $Global:LoginType = 'Certificate'
+                        $global:GLCertificate = $Certificate
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:Cert.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:GLCert.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:Cert = $null
+                        $global:GLCert = $null
+                        Receive-MgaOauthToken `
+                            -AppID $ApplicationID `
+                            -Certificate $Certificate `
+                            -Tenant $Tenant
+                    }
+                    else {
+                        Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token from last run is still active."
+                    }
+                }
+            }
+            elseif ($Thumbprint) {
+                if (!($global:GLTPrint)) {
+                    Write-Verbose "Receive-MgaOauthToken: Certificate: This is the first time logging in with a Certificate."
+                    $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($AppID).WithTenantId($tenant).WithCertificate($TPCertificate).Build()  
+                    $global:GLTPrint = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:GLTPrint.result.AccessToken) {
+                        throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
+                    }
+                    else {
+                        $global:GLheaderParameters = @{
+                            Authorization = "Bearer $($global:GLTPrint.result.AccessToken)"
+                        }
+                        $Global:LoginType = 'Thumbprint'
+                        $global:GLThumbprint = $Thumbprint
+                        $global:GLTPCertificate = $TPCertificate
+                    }
+                }
+                else {
+                    Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token already exists from previously running cmdlets."
+                    Write-Verbose "Receive-MgaOauthToken: Certificate: Running test to see if Oauth token expired."
+                    $OauthExpiryTime = $global:GLTPrint.Result.ExpiresOn.UtcDateTime
+                    if ($OauthExpiryTime -le $UTCDate) {
+                        Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
+                        $global:GLTPrint = $null
                         Receive-MgaOauthToken `
                             -AppID $ApplicationID `
                             -Thumbprint $Thumbprint `
@@ -755,28 +804,28 @@ function Receive-MgaOauthToken {
                 }
             }
             elseif ($RedirectUri) { 
-                if (!($global:RU)) {
+                if (!($global:GLRU)) {
                     $Builder = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ApplicationID).WithTenantId($Tenant).WithRedirectUri($RedirectUri).Build()
-                    $global:RU = $Builder.AcquireTokenInteractive($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:RU.result.AccessToken) {
+                    $global:GLRU = $Builder.AcquireTokenInteractive($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:GLRU.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:headerParameters = @{
-                            Authorization = "Bearer $($global:RU.result.AccessToken)"
+                        $global:GLheaderParameters = @{
+                            Authorization = "Bearer $($global:GLRU.result.AccessToken)"
                         }
-                        $global:LoginType = 'RedirectUri'
-                        $global:RedirectUri = $RedirectUri
-                        $global:LoginScope = $LoginScope
+                        $global:GLLoginType = 'RedirectUri'
+                        $global:GLRedirectUri = $RedirectUri
+                        $global:GLLoginScope = $LoginScope
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:RU.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:GLRU.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:RU = $null
+                        $global:GLRU = $null
                         Receive-MgaOauthToken `
                             -AppID $ApplicationID `
                             -Tenant $Tenant `
@@ -799,25 +848,25 @@ function Receive-MgaOauthToken {
                     client_id  = $AppID;
                     scope      = 'openid'
                 }
-                if (!($global:Basic)) {
-                    $global:Basic = Invoke-RestMethod -Method Post -Uri $loginURI/$Tenant/oauth2/token?api-version=1.0 -Body $Body -UseBasicParsing
-                    if ($null -eq $global:Basic.access_token) {
+                if (!($global:GLBasic)) {
+                    $global:GLBasic = Invoke-RestMethod -Method Post -Uri $loginURI/$Tenant/oauth2/token?api-version=1.0 -Body $Body -UseBasicParsing
+                    if ($null -eq $global:GLBasic.access_token) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:headerParameters = @{
-                            Authorization = "$($global:Basic.token_type) $($global:Basic.access_token)"
+                        $global:GLheaderParameters = @{
+                            Authorization = "$($global:GLBasic.token_type) $($global:GLBasic.access_token)"
                         }
-                        $global:LoginType = 'UserCredentials'
-                        $global:UserCredentials = $UserCredentials
+                        $global:GLLoginType = 'UserCredentials'
+                        $global:GLUserCredentials = $UserCredentials
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $UnixDateTime.AddSeconds($global:Basic.expires_on)
+                    $OauthExpiryTime = $UnixDateTime.AddSeconds($global:GLBasic.expires_on)
                     if ($OauthExpiryTime -le $UTCDate) {
-                        $global:Basic = $null
+                        $global:GLBasic = $null
                         Receive-MgaOauthToken `
                             -UserCredentials $UserCredentials `
                             -Tenant $Tenant `
