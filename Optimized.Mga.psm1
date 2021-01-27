@@ -660,7 +660,7 @@ function Receive-MgaOauthToken {
     begin {
         try { 
             $global:GLTenant = $Tenant
-            $global:GLApplicationID = $ApplicationID
+            $global:GLApplicationID = $AppID
             if ($null -eq $LoginScope) {
                 [System.Collections.Generic.List[String]]$LoginScope = @('https://graph.microsoft.com/.default')
             }
