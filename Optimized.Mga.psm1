@@ -120,7 +120,7 @@ function Disconnect-Mga {
 function Get-Mga {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position=0)]
         [string]
         $URL,
         [Parameter(Mandatory = $false)]      
@@ -151,7 +151,7 @@ function Get-Mga {
                         While ($Result.'@odata.nextLink') {
                             Write-Verbose "Get-Mga: There is another @odata.nextLink for more output. We will run Get-Mga again with the next data link."
                             Update-MgaOauthToken
-                            $Result = (Invoke-WebRequest -UseBasicParsing -Headers $HeaderParameters -Uri $Result.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
+                            $Result = (Invoke-WebRequest -UseBasicParsing -Headers $global:GLHeaderParameters -Uri $Result.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
                             foreach ($Line in ($Result).value) {
                                 $EndResult += $Line
                             }
@@ -206,7 +206,7 @@ function Get-Mga {
 function Post-Mga {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position=0)]
         [string]
         $URL,
         [Parameter(Mandatory = $false)]
@@ -253,7 +253,7 @@ function Post-Mga {
 function Patch-Mga {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position=0)]
         [string]
         $URL,
         [Parameter(Mandatory = $true)]
@@ -312,7 +312,7 @@ function Patch-Mga {
 function Delete-Mga {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, Position=0)]
         $URL,
         [Parameter(Mandatory = $false)]
         [string]
@@ -633,8 +633,9 @@ function Receive-MgaOauthToken {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [Alias('AppID')]
         [string]
-        $AppID,
+        $ApplicationID,
         [Parameter(Mandatory = $true)]
         [string]
         $Tenant,
