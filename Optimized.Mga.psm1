@@ -43,28 +43,28 @@ function Connect-Mga {
         if ($Thumbprint) {
             Write-Verbose "Connect-Mga: Thumbprint: Logging in with Thumbprint."
             Receive-MgaOauthToken `
-                -AppID $ApplicationID `
+                -ApplicationID $ApplicationID `
                 -Tenant $Tenant `
                 -Thumbprint $Thumbprint 
         }
         elseif ($Certificate) {
             Write-Verbose "Connect-Mga: Certificate: Logging in with certificate."
             Receive-MgaOauthToken `
-                -AppID $ApplicationID `
+                -ApplicationID $ApplicationID `
                 -Tenant $Tenant `
                 -Certificate $Certificate 
         }
         elseif ($ClientSecret) {
             Write-Verbose "Connect-Mga: RedirectUri: Logging in with RedirectUri."
             Receive-MgaOauthToken `
-                -AppID $ApplicationID `
+                -ApplicationID $ApplicationID `
                 -Tenant $Tenant `
                 -ClientSecret $ClientSecret
         }
         elseif ($RedirectUri) {
             Write-Verbose "Connect-Mga: MFA UserCredentials: Logging in with MFA UserCredentials."
             Receive-MgaOauthToken `
-                -AppID $ApplicationID `
+                -ApplicationID $ApplicationID `
                 -Tenant $Tenant `
                 -RedirectUri $RedirectUri `
                 -LoginScope $LoginScope
@@ -72,7 +72,7 @@ function Connect-Mga {
         elseif ($UserCredentials) {
             Write-Verbose "Connect-Mga: Basic UserCredentials: Logging in with Basic UserCredentials."
             Receive-MgaOauthToken `
-                -AppID $ApplicationID `
+                -ApplicationID $ApplicationID `
                 -Tenant $Tenant `
                 -UserCredentials $UserCredentials 
         }
@@ -595,32 +595,32 @@ function Update-MgaOauthToken {
     )
     if ($null -ne $global:GLAppPass) {
         Receive-MgaOauthToken `
-            -AppID $global:GLApplicationID `
+            -ApplicationID $global:GLApplicationID `
             -Tenant $global:GLTenant `
             -ClientSecret $global:GLSecret
     }
     elseif ($null -ne $global:GLCert) {
         Receive-MgaOauthToken `
-            -AppID $global:GLApplicationID `
+            -ApplicationID $global:GLApplicationID `
             -Tenant $global:GLTenant `
             -Certificate $global:GLCertificate
     }
     elseif ($null -ne $global:GLTPrint) {
         Receive-MgaOauthToken `
-            -AppID $global:GLApplicationID `
+            -ApplicationID $global:GLApplicationID `
             -Tenant $global:GLTenant `
             -Thumbprint $global:GLThumbprint 
     }
     elseif ($null -ne $global:GLRU) {
         Receive-MgaOauthToken `
-            -AppID $global:GLApplicationID `
+            -ApplicationID $global:GLApplicationID `
             -Tenant $global:GLTenant `
             -RedirectUri $global:GLRedirectUri `
             -LoginScope $global:GLLoginScope
     }
     elseif ($null -ne $global:GLBasic) {
         Receive-MgaOauthToken `
-            -AppID $global:GLApplicationID `
+            -ApplicationID $global:GLApplicationID `
             -Tenant $global:GLTenant `
             -UserCredentials $global:GLUserCredentials 
     }
@@ -633,7 +633,6 @@ function Receive-MgaOauthToken {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [Alias('AppID')]
         [string]
         $ApplicationID,
         [Parameter(Mandatory = $true)]
@@ -661,7 +660,7 @@ function Receive-MgaOauthToken {
     begin {
         try { 
             $global:GLTenant = $Tenant
-            $global:GLApplicationID = $AppID
+            $global:GLApplicationID = $ApplicationID
             if ($null -eq $LoginScope) {
                 [System.Collections.Generic.List[String]]$LoginScope = @('https://graph.microsoft.com/.default')
             }
@@ -701,7 +700,7 @@ function Receive-MgaOauthToken {
     process {
         try {
             if ($ClientSecret) {
-                if ($ClientSecret -ne 'System.Security.SecureString') {
+                if ($clientsecret.gettype().name -ne 'securestring') {
                     $Secret = $ClientSecret | ConvertTo-SecureString -AsPlainText -Force
                 }
                 $TempPass = [PSCredential]::new(".", $Secret).GetNetworkCredential().Password
@@ -728,7 +727,7 @@ function Receive-MgaOauthToken {
                         Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Oauth token expired. Emptying Oauth variable and re-running function."
                         $global:GLAppPass = $null
                         Receive-MgaOauthToken `
-                            -AppID $ApplicationID `
+                            -ApplicationID $ApplicationID `
                             -Tenant $Tenant `
                             -ClientSecret $ClientSecret           
                     }
@@ -740,7 +739,7 @@ function Receive-MgaOauthToken {
             elseif ($Certificate) {
                 if (!($global:GLCert)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: This is the first time logging in with a Certificate."
-                    $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($AppID).WithTenantId($tenant).WithCertificate($Certificate).Build()  
+                    $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($ApplicationID).WithTenantId($tenant).WithCertificate($Certificate).Build()  
                     $global:GLCert = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
                     if ($null -eq $global:GLCert.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
@@ -761,7 +760,7 @@ function Receive-MgaOauthToken {
                         Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
                         $global:GLCert = $null
                         Receive-MgaOauthToken `
-                            -AppID $ApplicationID `
+                            -ApplicationID $ApplicationID `
                             -Certificate $Certificate `
                             -Tenant $Tenant
                     }
@@ -773,7 +772,7 @@ function Receive-MgaOauthToken {
             elseif ($Thumbprint) {
                 if (!($global:GLTPrint)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: This is the first time logging in with a Certificate."
-                    $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($AppID).WithTenantId($tenant).WithCertificate($TPCertificate).Build()  
+                    $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($ApplicationID).WithTenantId($tenant).WithCertificate($TPCertificate).Build()  
                     $global:GLTPrint = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
                     if ($null -eq $global:GLTPrint.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
@@ -795,7 +794,7 @@ function Receive-MgaOauthToken {
                         Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
                         $global:GLTPrint = $null
                         Receive-MgaOauthToken `
-                            -AppID $ApplicationID `
+                            -ApplicationID $ApplicationID `
                             -Thumbprint $Thumbprint `
                             -Tenant $Tenant
                     }
@@ -828,7 +827,7 @@ function Receive-MgaOauthToken {
                         Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Oauth token expired. Emptying Oauth variable and re-running function."
                         $global:GLRU = $null
                         Receive-MgaOauthToken `
-                            -AppID $ApplicationID `
+                            -ApplicationID $ApplicationID `
                             -Tenant $Tenant `
                             -RedirectUri $RedirectUri `
                             -LoginScope $LoginScope
@@ -846,7 +845,7 @@ function Receive-MgaOauthToken {
                     resource   = $Resource;
                     username   = $($userCredentials.UserName)
                     password   = $($UserCredentials.Password)
-                    client_id  = $AppID;
+                    client_id  = $ApplicationID;
                     scope      = 'openid'
                 }
                 if (!($global:GLBasic)) {
@@ -871,7 +870,7 @@ function Receive-MgaOauthToken {
                         Receive-MgaOauthToken `
                             -UserCredentials $UserCredentials `
                             -Tenant $Tenant `
-                            -AppID $ApplicationID
+                            -ApplicationID $ApplicationID
                     }
                     else {
                         Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Oauth token from last run is still active."
