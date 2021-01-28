@@ -644,7 +644,6 @@ function Receive-MgaOauthToken {
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
         $Certificate, 
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
-        [string]
         $ClientSecret, 
         [Parameter(Mandatory = $true, ParameterSetName = 'Redirecturi')]
         [string]
@@ -702,6 +701,8 @@ function Receive-MgaOauthToken {
             if ($ClientSecret) {
                 if ($clientsecret.gettype().name -ne 'securestring') {
                     $Secret = $ClientSecret | ConvertTo-SecureString -AsPlainText -Force
+                } else {
+                    $Secret = $ClientSecret
                 }
                 $TempPass = [PSCredential]::new(".", $Secret).GetNetworkCredential().Password
                 if (!($global:GLAppPass)) {
