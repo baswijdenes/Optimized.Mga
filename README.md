@@ -6,6 +6,9 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 * [Submit an issue](https://github.com/baswijdenes/Optimized.Mga/issues)
 * [My blog](https://bwit.blog/)
 
+## UPDATES VERSIONS
+* [0.0.2.0.md](Versions\0.0.2.0.md)
+
 ## Are you new with the Microsoft Graph API? 
 * [Here is a link to the official Microsoft Graph API SDK for PowerShell](https://docs.microsoft.com/en-us/graph/powershell/get-started)
 * [Here is a link to post on my blog about starting with Microsoft Graph API](https://bwit.blog/how-to-start-with-microsoft-graph-in-powershell/)
@@ -201,7 +204,7 @@ Patch-Mga can be seen as the 'Update' Verb.
 
 -InputObject will accept a PSObject or JSON. 
 
-InputObject with members@odata.bind property over 20+ users will automatically be batched. 
+InputObject with members@odata.bind property over 20+ users will automatically be handled for you.
 
 -Batch is a switch to use Batch in the backend. -Batch only works with 'members@odata.bind' property.
 

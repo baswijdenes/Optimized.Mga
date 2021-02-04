@@ -1,8 +1,83 @@
-<# START USER FUNCTIONS #>
+#region main
 function Connect-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Connect-Mga will retreive a RefreshToken from Microsoft Graph.
+    
+    .DESCRIPTION
+    By selecting one of these parameters you log on with the following:
+
+    ClientSecret: Will log you on with a ClientSecret.
+    Certificate: Will log you on with a Certificate.
+    Thumbprint: Will search for a Certificate under thumbprint on local device and log you on with a Certificate.
+    UserCredentials: Will log you on with basic authentication.
+    RedirectUri: Will log you on with MFA Authentication.
+    The OauthToken is automatically renewed when you use cmdlets.
+
+    .PARAMETER Thumbprint
+    Use a certificate thumbprint to log on with. Connec-Mga will search for the certificate in the cert store.
+    
+    .PARAMETER Certificate
+    Use a Cert to log on. you can use where X's is the certificate thumbprint:
+    $Cert = get-ChildItem 'Cert:\LocalMachine\My\XXXXXXXXXXXXXXXXXXX'
+    Connect-Mga -Certificate $Cert -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX.onmicrosoft.com'
+    
+    .PARAMETER ClientSecret
+    Parameter description
+    
+    .PARAMETER RedirectUri
+    Use the RedirectUri in your AzureAD app to connect with MFA. 
+    RedirectUri should look something like this:
+    'msalXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX://auth' 
+
+    If you want to know more about how to log in via MFA with a RedirectUri, go to my blog:
+    https://bwit.blog/how-to-start-with-microsoft-graph-in-powershell/#I_will_use_credentials
+    
+    
+    .PARAMETER UserCredentials
+    Use Get-Credential to log on with Basic Authentication. 
+    
+    .PARAMETER ApplicationID
+    ApplicationID is the ID for the AzureAD application. It should look like this:
+    'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
+
+    .PARAMETER Tenant
+    Tenant is the TenantID or onmicrosoft.com address. Don't confuse this with ApplicationID.
+
+    I should look like this:
+    'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
+    Or
+    XXXXXXX.onmicrosoft.com
+    
+    .PARAMETER LoginScope
+    You can only use LoginScope with RedirectUri, but unfortunately the token will always include all permissions the app has.
+    
+    .PARAMETER Force
+    Use -Force when you want to overwrite another connection (or Accept the confirmation).
+    
+    .EXAMPLE
+    Connect-Mga -ClientSecret '1yD3h~.KgROPO.K1sbRF~XXXXXXXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' 
+
+    .EXAMPLE
+    $Cert = get-ChildItem 'Cert:\LocalMachine\My\XXXXXXXXXXXXXXXXXXX'
+    Connect-Mga -Certificate $Cert -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX.onmicrosoft.com'
+
+    .EXAMPLE
+    Connect-Mga -Thumbprint '3A7328F1059E9802FAXXXXXXXXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -Tenant 'XXXXXXXX.onmicrosoft.com' 
+
+    .EXAMPLE
+    Connect-Mga -UserCredentials $Cred -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
+
+    .EXAMPLE
+    Connect-Mga -redirectUri 'msalXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX://auth' -Tenant 'XXXXXXXX.onmicrosoft.com'  -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
+    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true, ParameterSetName = 'Thumbprint')]
+        [ValidateScript( { $_.length -eq 40 })]
         [string]
         $Thumbprint, 
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
@@ -83,30 +158,31 @@ function Connect-Mga {
 }
 
 function Disconnect-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Use this to log off Microsoft Graph.
+    
+    .DESCRIPTION
+    To update the OauthToken I fill the global scope with a number of properties. 
+    The properties are emptied by Disconnect-Mga.
+    
+    .EXAMPLE
+    Disconnect-Mga
+    #>
     [CmdletBinding()]
     param (
     )
     begin {
-        Write-Verbose "Disconnect-Mga: Disconnecting from Microsoft.Graph.API."
+        if ($global:MgaLoginType.length -ge 1) {
+            Write-Verbose "Disconnect-Mga: Disconnecting from Microsoft.Graph.API."
+        }
     }
     process {
         try {
-            $global:GLTenant = $null
-            $global:GLApplicationID = $null
-            $global:GLheaderParameters = $null
-            $Global:LoginType = $null
-            $global:GLAppPass = $null
-            $global:GLTPrint = $null
-            $global:GLRU = $null
-            $global:GLBasic = $null
-            $global:GLTPCertificate = $null
-            $global:GLCertificate = $null
-            $global:GLCert = $null
-            $global:GLSecret = $null
-            $global:GLThumbprint = $null
-            $global:GLRedirectUri = $null
-            $global:GLLoginScope = $null
-            $global:GLUserCredentials = $null
+            $Null = Get-Variable -Name "Mga*" -Scope Global | Remove-Variable -Force -Scope Global
         }
         catch {
             throw $_.Exception.Message
@@ -118,9 +194,41 @@ function Disconnect-Mga {
 }
 
 function Get-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Get-Mga speaks for itself. All you have to provide is the URL.
+    
+    .DESCRIPTION
+    You can grab the URL via the browser developer tools, Fiddler, or from the Microsoft Graph docs. You can use all query parameters in the URL like some in the examples.
+    It will automatically use the Next Link when there is one in the returned request.
+    
+    .PARAMETER URL
+    The URL to get data from Microsoft Graph.
+    
+    .PARAMETER Once
+    If you only want to retrieve data once, you can use the -Once parameter.
+    For example, I used this in the beta version to get the latest login. Nowadays this property is a property under the user: signInActivity.
+    
+    .EXAMPLE
+    Get-Mga -URL 'https://graph.microsoft.com/v1.0/users' -Once
+
+    .EXAMPLE
+    Get-Mga -URL 'https://graph.microsoft.com/v1.0/users?$top=999'
+
+    .EXAMPLE
+    $URL = 'https://graph.microsoft.com/v1.0/users?$select={0}' -f 'id,userPrincipalName,lastPasswordChangeDateTime,createdDateTime,PasswordPolicies' 
+    Get-Mga -URL $URL
+
+    .EXAMPLE
+    $URL = 'https://graph.microsoft.com/beta/users?$filter=({0})&$select=displayName,userPrincipalName,createdDateTime,signInActivity' -f "UserType eq 'Guest'"
+    Get-Mga URL $URL
+    #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [string]
         $URL,
         [Parameter(Mandatory = $false)]      
@@ -133,7 +241,7 @@ function Get-Mga {
     process {
         try {
             Write-Verbose "Get-Mga: Getting results from $URL."
-            $Result = Invoke-WebRequest -UseBasicParsing -Headers $global:GLHeaderParameters -Uri $URL -Method get
+            $Result = Invoke-WebRequest -UseBasicParsing -Headers $global:MgaHeaderParameters -Uri $URL -Method get
             if ($result.Headers.'Content-Type' -like "application/octet-stream*") {
                 Write-Verbose "Get-Mga: Result is in Csv format. Converting to Csv and returning end result."
                 $EndResult = ConvertFrom-Csv -InputObject $Result
@@ -151,7 +259,7 @@ function Get-Mga {
                         While ($Result.'@odata.nextLink') {
                             Write-Verbose "Get-Mga: There is another @odata.nextLink for more output. We will run Get-Mga again with the next data link."
                             Update-MgaOauthToken
-                            $Result = (Invoke-WebRequest -UseBasicParsing -Headers $global:GLHeaderParameters -Uri $Result.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
+                            $Result = (Invoke-WebRequest -UseBasicParsing -Headers $global:MgaHeaderParameters -Uri $Result.'@odata.nextLink' -Method Get).Content | ConvertFrom-Json
                             foreach ($Line in ($Result).value) {
                                 $EndResult += $Line
                             }
@@ -204,9 +312,35 @@ function Get-Mga {
 }
 
 function Post-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Post-Mga can be seen as the 'new' Verb. With this cmdlet you create objects in AzureAD.
+
+    .PARAMETER URL
+    URL to 'POST' to.
+    
+    .PARAMETER InputObject
+    -InputObject will accept a PSObject or JSON.
+    
+    .EXAMPLE
+    $InputObject = @{
+        accountEnabled    = 'true'
+        displayName       = "Test User Post MSGraph"
+        mailNickname      = "TestUserPostMSGraph"
+        userPrincipalName = "TestUserPostMSGraph@XXXXXXXXX.onmicrosoft.com"
+        passwordProfile   = @{
+            forceChangePasswordNextSignIn = 'true'
+            password                      = 'XXXXXXXXXX'
+        }
+    }
+    Post-Mga -URL 'https://graph.microsoft.com/v1.0/users' -InputObject $InputObject
+    #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [string]
         $URL,
         [Parameter(Mandatory = $false)]
@@ -221,10 +355,10 @@ function Post-Mga {
         try {
             if ($InputObject) {
                 Write-Verbose "Post-Mga: Posting InputObject to Microsoft.Graph.API."
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method post -Body $InputObject -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method post -Body $InputObject -ContentType application/json
             }
             else {
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method post -ContentType application/json    
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method post -ContentType application/json    
             }
         }
         catch [System.Net.WebException] {
@@ -251,9 +385,40 @@ function Post-Mga {
 }
 
 function Patch-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Patch-Mga can be seen as the 'Update' Verb.
+    In the below example I add users to a Group.
+
+    .PARAMETER URL
+    URL to 'PATCH' to.
+
+    .PARAMETER InputObject
+    -InputObject will accept a PSObject or JSON.
+    InputObject with members@odata.bind property over 20+ users will automatically be handled for you.
+
+    .PARAMETER Batch
+    -Batch is a switch to use Batch in the backend. -Batch only works with 'members@odata.bind' property.
+
+    .EXAMPLE
+    $users = Get-Mga 'https://graph.microsoft.com/v1.0/users'
+    $UserPostList = [System.Collections.Generic.List[Object]]::new() 
+    foreach ($User in $users)
+    {
+        $DirectoryObject = 'https://graph.microsoft.com/v1.0/directoryObjects/{0}' -f $User.id
+        $UserPostList.Add($DirectoryObject)
+    }
+    $PostBody = [PSCustomObject] @{
+        "members@odata.bind" = $UserPostList
+    }
+    Patch-Mga -URL 'https://graph.microsoft.com/v1.0/groups/4c9d31a2-c662-4f76-b3f8-52290d2aa788' -InputObject $PostBody
+    #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [string]
         $URL,
         [Parameter(Mandatory = $true)]
@@ -283,7 +448,7 @@ function Patch-Mga {
             else {
                 $InputObject = ConvertTo-MgaJson -InputObject $InputObject
                 Write-Verbose "Patch-Mga: Patching InputObject to Microsoft.Graph.API."
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method Patch -Body $InputObject -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method Patch -Body $InputObject -ContentType application/json
             }
         }
         catch [System.Net.WebException] {
@@ -310,9 +475,31 @@ function Patch-Mga {
 }
 
 function Delete-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Delete speaks for itself. With this cmdlet you can remove objects from AzureAD.
+
+    .PARAMETER URL
+    -URL accepts an array of URLS, it will use Batch-Mga in the backend.
+    
+    .PARAMETER InputObject
+    -InputObject will accept a PSObject or JSON.
+    
+    .EXAMPLE
+    $GroupUsers = Get-Mga -URL 'https://graph.microsoft.com/v1.0/groups/ac252320-4194-402f-8182-2d14e4a2db5c/members'
+    $UserList = @()
+    foreach ($User in $GroupUsers) {
+        $URL = 'https://graph.microsoft.com/v1.0/groups/ac252320-4194-402f-8182-2d14e4a2db5c/members/{0}/$ref' -f $User.Id
+        $UserList += $URL
+    }
+    Delete-Mga -URL $UserList
+    #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         $URL,
         [Parameter(Mandatory = $false)]
         [string]
@@ -335,11 +522,11 @@ function Delete-Mga {
             elseif ($InputObject) {
                 Write-Verbose "Delete-Mga: Deleting InputObject on $URL to Microsoft.Graph.API."
                 $InputObject = ConvertTo-MgaJson -InputObject $InputObject
-                $Result = Invoke-RestMethod -Uri $URL -body $InputObject -Headers $global:GLheaderParameters -Method Delete -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -body $InputObject -Headers $global:MgaheaderParameters -Method Delete -ContentType application/json
             }
             else {
                 Write-Verbose "Delete-Mga: Deleting conent on $URL to Microsoft.Graph.API."
-                $Result = Invoke-RestMethod -Uri $URL -Headers $global:GLheaderParameters -Method Delete -ContentType application/json
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method Delete -ContentType application/json
             }
 
         }
@@ -372,6 +559,55 @@ function Delete-Mga {
 }
 
 function Batch-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Batch-Mga is for speed and bulk.
+    See the related link for more.
+    
+    .DESCRIPTION
+    Batch-Mga will take care of the limitations(20 requests per batch) and will sleep for the amount of time a throttle limit is returned and then continue.
+
+    .PARAMETER InputObject
+    -InputObject will accept an ArrayList.
+    See the examples for more information.
+    
+    .PARAMETER Headers
+    You can manually change the header for the Batch, but this will change all headers.
+    
+    .PARAMETER Beta
+    Switch to batch to beta instead.
+    Default is v1.0. 
+    
+    .EXAMPLE
+    $DeletedObjects = Get-Mga -URL 'https://graph.microsoft.com/v1.0/directory/deletedItems/microsoft.graph.user?$top=999'
+    $Batch = [System.Collections.Generic.List[Object]]::new()
+    foreach ($User in $DeletedObjects) {
+        $Object = [PSCustomObject]@{
+            url    = "/directory/deletedItems/$($User.id)"
+            method = 'delete'
+        }
+        $Batch.Add($object)
+    }
+    Batch-Mga -InputObject $batch
+
+    .EXAMPLE
+    $BatchDependsOn = [System.Collections.Generic.List[Object]]::new()
+    foreach ($User in $Response) {
+        $Object = [PSCustomObject]@{
+            Url       = "/users/$($User.UserPrincipalName)"
+            method    = 'patch'
+            body      = [PSCustomObject] @{
+                officeLocation = "18/2111"
+            }
+            dependsOn = 2
+        }
+        $test.Add($object)
+    }
+    Batch-Mga -InputObject $BatchDependsOn
+    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -506,10 +742,45 @@ function Batch-Mga {
 }
 
 function Send-MgaMail {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Sends emails with Microsoft Graph.
+    
+    .DESCRIPTION
+    Send-MgaMail uses the Microsoft Graph v1.0 REST API.
+    You need Mail.Send permissions.
+
+    .PARAMETER To
+    To accepts an array of addresses.
+    
+    .PARAMETER Subject
+    Is the email subject.
+    
+    .PARAMETER Body
+    Is the email body.
+    
+    .PARAMETER From
+    Add the From address when logged in with Application permissions.
+    When logged in with user credentials the From address will automatically be the userLogon. This is also displayed in a warning message.
+    
+    .PARAMETER Attachments
+    Attachments accepts an Array. Make sure to use the FullName (Including Path).
+    Example:
+    'C:\Temp\Attachment.txt','C:\Temp\Attachment2.txt'
+
+    .EXAMPLE
+    Send-MgaMail -From 'John.Doe@XXXXXXXXXXX.onmicrosoft.com' -To 'Jack.Doe@contoso.com' -Subject 'Test message' -Body 'This is a test message'
+
+    .EXAMPLE
+    Send-MgaMail -To 'Jack.Doe@contoso.com' -Subject 'Test message' -Body 'This is a test message'
+    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
-        [string]
+        [string[]]
         $To,
         [Parameter(Mandatory = $true)]
         [string]
@@ -519,12 +790,23 @@ function Send-MgaMail {
         $Body,
         [Parameter(Mandatory = $false)]
         [string]
-        $From
+        $From,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $Attachments
     )
     begin {
         try {
-            Write-Verbose "Send-MgaMail: To address is $To."
-            Write-Verbose "Send-MgaMail: Subject is $Subject."
+            $URL = 'https://graph.microsoft.com/v1.0/me/sendMail'
+            $ToList = [System.Collections.Generic.List[System.Object]]::new()
+            foreach ($Address in $To) {
+                $Object = [PSCustomObject]@{
+                    emailAddress = [PSCustomObject] @{
+                        'address' = $Address
+                    }
+                }
+                $ToList.Add($Object)
+            }
             $Message = [PSCustomObject] @{
                 message = [PSCustomObject] @{
                     subject      = $subject
@@ -532,24 +814,50 @@ function Send-MgaMail {
                         contentType = 'HTML'
                         content     = $body
                     }
-                    toRecipients = @([PSCustomObject] @{
-                            emailAddress = [PSCustomObject] @{
-                                'address' = $To
-                            }
-                        })
+                    toRecipients = @($ToList)
                 }
             }
-            if ($null -ne $From) {
+            if ($Attachments.Length -gt 0) {
+                $AttachmentsList = [System.Collections.Generic.List[System.Object]]::new()
+                foreach ($attachment in $Attachments) {
+                    $FileBytes = Get-Content -Path $Attachment -Encoding Byte
+                    $AttachmentName = $Attachment.split('\') | Select-Object -Last 1
+                    $Base64String = ([System.Convert]::ToBase64String($FileBytes))
+                    $AttachmentsNode = [PSCustomObject]@{
+                        "@odata.type"  = "#microsoft.graph.fileAttachment"
+                        "name"         = $AttachmentName
+                        "contentBytes" = $Base64String
+                    }
+                    $AttachmentsList.Add($AttachmentsNode)
+                }
+                $Message = [PSCustomObject] @{
+                    message = [PSCustomObject] @{
+                        subject      = $subject
+                        body         = [PSCustomObject] @{
+                            contentType = 'HTML'
+                            content     = $body
+                        }
+                        toRecipients = @($ToList)
+                        Attachments  = @($AttachmentsList)
+                    }
+                }
+            }
+            if ($From.length -gt 0) {
+                if (($global:MgaRU.result.length -ge 1) -and ($global:MgaRU.result.account.Username -ne $From)) {
+                    Write-Warning "You have logged in with Credentials. We cannot use a different Email Address than $From. We will use $From to send email from." 
+                    $From = $global:MgaRU.result.account.Username
+                }
+                if (($global:MgaBasic.access_token.length -ge 1) -and ($global:MgaUserCredentials.UserName -ne $From)) {
+                    Write-Warning "You have logged in with Credentials. We cannot use a different Email Address than $From. We will use $From to send email from." 
+                    $From = $global:MgaUserCredentials.UserName 
+                }
                 Write-Verbose "Send-MgaMail: From address is $From."
                 $FromNode = [PSCustomObject] @{
                     emailAddress = [PSCustomObject] @{
                         'address' = $From
                     }
                 }
-                $Message | Add-Member -MemberType NoteProperty -Name From -Value $FromNode
-            }
-            $URL = 'https://graph.microsoft.com/v1.0/me/sendMail'
-            if ($null -ne $From) {
+                $Message | Add-Member -MemberType NoteProperty -Name 'From' -Value $FromNode
                 $URL = "https://graph.microsoft.com/v1.0/users/$($From)/sendMail"
             }
         }
@@ -570,13 +878,14 @@ function Send-MgaMail {
         return "Email to $To with subject $Subject has been sent succesfully."
     }
 }
-<# END USER FUNCTIONS #>
-<# START INTERNAL FUNCTIONS #>
+#endregion main
+
+#region internal
 function Initialize-MgaConnect {
     [CmdletBinding()]
     param (
     )
-    if ($Global:LoginType) {
+    if ($global:MgaLoginType.length -ge 1) {
         Write-Verbose "Initialize-MgaConnect: You're already logged on."
         $Confirmation = Read-Host 'You already logged on. Are you sure you want to proceed? Type (Y)es to continue.'
         if (($Confirmation -eq 'y') -or ($Confirmation -eq 'yes') -or ($Confirmation -eq 'true') -or ($Confirmation -eq '(Y)es')) {
@@ -589,40 +898,41 @@ function Initialize-MgaConnect {
         }
     }
 }
+
 function Update-MgaOauthToken {  
     [CmdletBinding()]
     param (
     )
-    if ($null -ne $global:GLAppPass) {
+    if ($null -ne $global:MgaAppPass) {
         Receive-MgaOauthToken `
-            -ApplicationID $global:GLApplicationID `
-            -Tenant $global:GLTenant `
-            -ClientSecret $global:GLSecret
+            -ApplicationID $global:MgaApplicationID `
+            -Tenant $global:MgaTenant `
+            -ClientSecret $global:MgaSecret
     }
-    elseif ($null -ne $global:GLCert) {
+    elseif ($null -ne $global:MgaCert) {
         Receive-MgaOauthToken `
-            -ApplicationID $global:GLApplicationID `
-            -Tenant $global:GLTenant `
-            -Certificate $global:GLCertificate
+            -ApplicationID $global:MgaApplicationID `
+            -Tenant $global:MgaTenant `
+            -Certificate $global:MgaCertificate
     }
-    elseif ($null -ne $global:GLTPrint) {
+    elseif ($null -ne $global:MgaTPrint) {
         Receive-MgaOauthToken `
-            -ApplicationID $global:GLApplicationID `
-            -Tenant $global:GLTenant `
-            -Thumbprint $global:GLThumbprint 
+            -ApplicationID $global:MgaApplicationID `
+            -Tenant $global:MgaTenant `
+            -Thumbprint $global:MgaThumbprint 
     }
-    elseif ($null -ne $global:GLRU) {
+    elseif ($null -ne $global:MgaRU) {
         Receive-MgaOauthToken `
-            -ApplicationID $global:GLApplicationID `
-            -Tenant $global:GLTenant `
-            -RedirectUri $global:GLRedirectUri `
-            -LoginScope $global:GLLoginScope
+            -ApplicationID $global:MgaApplicationID `
+            -Tenant $global:MgaTenant `
+            -RedirectUri $global:MgaRedirectUri `
+            -LoginScope $global:MgaLoginScope
     }
-    elseif ($null -ne $global:GLBasic) {
+    elseif ($null -ne $global:MgaBasic) {
         Receive-MgaOauthToken `
-            -ApplicationID $global:GLApplicationID `
-            -Tenant $global:GLTenant `
-            -UserCredentials $global:GLUserCredentials 
+            -ApplicationID $global:MgaApplicationID `
+            -Tenant $global:MgaTenant `
+            -UserCredentials $global:MgaUserCredentials 
     }
     else {
         Throw "You need to run Connect-Mga before you can continue. Exiting script..."
@@ -658,8 +968,8 @@ function Receive-MgaOauthToken {
     )
     begin {
         try { 
-            $global:GLTenant = $Tenant
-            $global:GLApplicationID = $ApplicationID
+            $global:MgaTenant = $Tenant
+            $global:MgaApplicationID = $ApplicationID
             if ($null -eq $LoginScope) {
                 [System.Collections.Generic.List[String]]$LoginScope = @('https://graph.microsoft.com/.default')
             }
@@ -675,7 +985,7 @@ function Receive-MgaOauthToken {
             $UTCDate = [System.TimeZoneInfo]::ConvertTimeToUtc($Date)
             if ($thumbprint.length -gt 5) { 
                 Write-Verbose "Receive-MgaOauthToken: Certificate: We will continue logging in with Certificate."
-                if (($null -eq $global:GLTPCertificate) -or ($Thumbprint -ne ($global:GLTPCertificate).Thumbprint)) {
+                if (($null -eq $global:MgaTPCertificate) -or ($Thumbprint -ne ($global:MgaTPCertificate).Thumbprint)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Starting search in CurrentUser\my."
                     $TPCertificate = Get-Item Cert:\CurrentUser\My\$Thumbprint -ErrorAction SilentlyContinue
                     if ($null -eq $TPCertificate) {
@@ -687,7 +997,7 @@ function Receive-MgaOauthToken {
                     }
                 }
                 else {
-                    $TPCertificate = $global:GLTPCertificate
+                    $TPCertificate = $global:MgaTPCertificate
                     Write-Verbose "Receive-MgaOauthToken: Certificate: We already obtained a certificate from a previous login. We will continue logging in."
                 }
             }
@@ -701,32 +1011,33 @@ function Receive-MgaOauthToken {
             if ($ClientSecret) {
                 if ($clientsecret.gettype().name -ne 'securestring') {
                     $Secret = $ClientSecret | ConvertTo-SecureString -AsPlainText -Force
-                } else {
+                }
+                else {
                     $Secret = $ClientSecret
                 }
                 $TempPass = [PSCredential]::new(".", $Secret).GetNetworkCredential().Password
-                if (!($global:GLAppPass)) {
+                if (!($global:MgaAppPass)) {
                     Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: This is the first time logging in with a ClientSecret."
                     $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($ApplicationID).WithTenantId($Tenant).WithClientSecret($TempPass).Build()
-                    $global:GLAppPass = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:GLAppPass.result.AccessToken) {
+                    $global:MgaAppPass = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:MgaAppPass.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:GLheaderParameters = @{
-                            Authorization = "Bearer $($global:GLAppPass.result.AccessToken)"
+                        $global:MgaheaderParameters = @{
+                            Authorization = $global:MgaAppPass.result.CreateAuthorizationHeader()
                         }
-                        $Global:LoginType = 'ClientSecret'
-                        $global:GLSecret = $Secret
+                        $global:MgaLoginType = 'ClientSecret'
+                        $global:MgaSecret = $Secret
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:GLAppPass.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:MgaAppPass.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: ApplicationSecret: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:GLAppPass = $null
+                        $global:MgaAppPass = $null
                         Receive-MgaOauthToken `
                             -ApplicationID $ApplicationID `
                             -Tenant $Tenant `
@@ -738,28 +1049,28 @@ function Receive-MgaOauthToken {
                 }
             }
             elseif ($Certificate) {
-                if (!($global:GLCert)) {
+                if (!($global:MgaCert)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: This is the first time logging in with a Certificate."
                     $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($ApplicationID).WithTenantId($tenant).WithCertificate($Certificate).Build()  
-                    $global:GLCert = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:GLCert.result.AccessToken) {
+                    $global:MgaCert = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:MgaCert.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:GLheaderParameters = @{
-                            Authorization = "Bearer $($global:GLCert.result.AccessToken)"
+                        $global:MgaheaderParameters = @{
+                            Authorization = $global:MgaCert.result.CreateAuthorizationHeader()
                         }
-                        $Global:LoginType = 'Certificate'
-                        $global:GLCertificate = $Certificate
+                        $global:MgaLoginType = 'Certificate'
+                        $global:MgaCertificate = $Certificate
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:GLCert.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:MgaCert.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:GLCert = $null
+                        $global:MgaCert = $null
                         Receive-MgaOauthToken `
                             -ApplicationID $ApplicationID `
                             -Certificate $Certificate `
@@ -771,29 +1082,29 @@ function Receive-MgaOauthToken {
                 }
             }
             elseif ($Thumbprint) {
-                if (!($global:GLTPrint)) {
+                if (!($global:MgaTPrint)) {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: This is the first time logging in with a Certificate."
                     $Builder = [Microsoft.Identity.Client.ConfidentialClientApplicationBuilder]::Create($ApplicationID).WithTenantId($tenant).WithCertificate($TPCertificate).Build()  
-                    $global:GLTPrint = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:GLTPrint.result.AccessToken) {
+                    $global:MgaTPrint = $Builder.AcquireTokenForClient($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:MgaTPrint.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:GLheaderParameters = @{
-                            Authorization = "Bearer $($global:GLTPrint.result.AccessToken)"
+                        $global:MgaheaderParameters = @{
+                            Authorization = $global:MgaTPrint.result.CreateAuthorizationHeader()
                         }
-                        $Global:LoginType = 'Thumbprint'
-                        $global:GLThumbprint = $Thumbprint
-                        $global:GLTPCertificate = $TPCertificate
+                        $global:MgaLoginType = 'Thumbprint'
+                        $global:MgaThumbprint = $Thumbprint
+                        $global:MgaTPCertificate = $TPCertificate
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: Certificate: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:GLTPrint.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:MgaTPrint.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: Certificate: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:GLTPrint = $null
+                        $global:MgaTPrint = $null
                         Receive-MgaOauthToken `
                             -ApplicationID $ApplicationID `
                             -Thumbprint $Thumbprint `
@@ -805,28 +1116,28 @@ function Receive-MgaOauthToken {
                 }
             }
             elseif ($RedirectUri) { 
-                if (!($global:GLRU)) {
+                if (!($global:MgaRU)) {
                     $Builder = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($ApplicationID).WithTenantId($Tenant).WithRedirectUri($RedirectUri).Build()
-                    $global:GLRU = $Builder.AcquireTokenInteractive($LoginScope).ExecuteAsync()
-                    if ($null -eq $global:GLRU.result.AccessToken) {
+                    $global:MgaRU = $Builder.AcquireTokenInteractive($LoginScope).ExecuteAsync()
+                    if ($null -eq $global:MgaRU.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:GLheaderParameters = @{
-                            Authorization = "Bearer $($global:GLRU.result.AccessToken)"
+                        $global:MgaheaderParameters = @{
+                            Authorization = $global:MgaRU.Result.CreateAuthorizationHeader()
                         }
-                        $global:GLLoginType = 'RedirectUri'
-                        $global:GLRedirectUri = $RedirectUri
-                        $global:GLLoginScope = $LoginScope
+                        $global:MgaLoginType = 'RedirectUri'
+                        $global:MgaRedirectUri = $RedirectUri
+                        $global:MgaLoginScope = $LoginScope
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $global:GLRU.Result.ExpiresOn.UtcDateTime
+                    $OauthExpiryTime = $global:MgaRU.Result.ExpiresOn.UtcDateTime
                     if ($OauthExpiryTime -le $UTCDate) {
                         Write-Verbose "Receive-MgaOauthToken: MFA UserCredentials: Oauth token expired. Emptying Oauth variable and re-running function."
-                        $global:GLRU = $null
+                        $global:MgaRU = $null
                         Receive-MgaOauthToken `
                             -ApplicationID $ApplicationID `
                             -Tenant $Tenant `
@@ -849,25 +1160,25 @@ function Receive-MgaOauthToken {
                     client_id  = $ApplicationID;
                     scope      = 'openid'
                 }
-                if (!($global:GLBasic)) {
-                    $global:GLBasic = Invoke-RestMethod -Method Post -Uri $loginURI/$Tenant/oauth2/token?api-version=1.0 -Body $Body -UseBasicParsing
-                    if ($null -eq $global:GLBasic.access_token) {
+                if (!($global:MgaBasic)) {
+                    $global:MgaBasic = Invoke-RestMethod -Method Post -Uri $loginURI/$Tenant/oauth2/token?api-version=1.0 -Body $Body -UseBasicParsing
+                    if ($null -eq $global:MgaBasic.access_token) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
-                        $global:GLheaderParameters = @{
-                            Authorization = "$($global:GLBasic.token_type) $($global:GLBasic.access_token)"
+                        $global:MgaheaderParameters = @{
+                            Authorization = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
                         }
-                        $global:GLLoginType = 'UserCredentials'
-                        $global:GLUserCredentials = $UserCredentials
+                        $global:MgaLoginType = 'UserCredentials'
+                        $global:MgaUserCredentials = $UserCredentials
                     }
                 }
                 else {
                     Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Oauth token already exists from previously running cmdlets."
                     Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Running test to see if Oauth token expired."
-                    $OauthExpiryTime = $UnixDateTime.AddSeconds($global:GLBasic.expires_on)
+                    $OauthExpiryTime = $UnixDateTime.AddSeconds($global:MgaBasic.expires_on)
                     if ($OauthExpiryTime -le $UTCDate) {
-                        $global:GLBasic = $null
+                        $global:MgaBasic = $null
                         Receive-MgaOauthToken `
                             -UserCredentials $UserCredentials `
                             -Tenant $Tenant `
@@ -1047,4 +1358,4 @@ function Optimize-Mga {
         return $Results
     }
 }
-<# END INTERNAL FUNCTIONS #>
+#endregion internal
