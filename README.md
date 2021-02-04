@@ -7,7 +7,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 * [My blog](https://bwit.blog/)
 
 ## UPDATES VERSIONS
-* [0.0.2.0.md](Versions\0.0.2.0.md)
+* [0.0.2.0.md](0.0.2.0.md)
 
 ## Are you new with the Microsoft Graph API? 
 * [Here is a link to the official Microsoft Graph API SDK for PowerShell](https://docs.microsoft.com/en-us/graph/powershell/get-started)
