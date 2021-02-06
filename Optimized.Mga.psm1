@@ -780,6 +780,7 @@ function Send-MgaMail {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
+        [ValidateScript({$_ -like "*@*"})]
         [string[]]
         $To,
         [Parameter(Mandatory = $true)]
@@ -789,6 +790,7 @@ function Send-MgaMail {
         [string]
         $Body,
         [Parameter(Mandatory = $false)]
+        [ValidateScript({$_ -like "*@*"})]
         [string]
         $From,
         [Parameter(Mandatory = $false)]
