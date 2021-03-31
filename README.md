@@ -7,6 +7,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 * [My blog](https://bwit.blog/)
 
 ## UPDATES VERSIONS
+* [0.0.2.1.md](/.Versions/0.0.2.1.md)
 * [0.0.2.0.md](./.Versions/0.0.2.0.md)
 
 ## Are you new with the Microsoft Graph API? 
@@ -294,4 +295,11 @@ Send-MgaMail -From 'John.Doe@XXXXXXXXXXX.onmicrosoft.com' -To 'Jack.Doe@contoso.
 ```
 ```PowerShell
 Send-MgaMail -To 'Jack.Doe@contoso.com' -Subject 'Test message' -Body 'This is a test message'
+```
+```PowerShell
+$Object = [PSCustomObject] @{
+    Name = 'Testfile.csv'
+    Content = (Get-Service | ConvertTo-Csv -NoTypeInformation)
+}
+Send-MgaMail 'Jack.Doe@contoso.com' -Subject 'Test message' -Body 'This is a test message' -AttachmentObjects $Object
 ```
