@@ -16,9 +16,6 @@ function Connect-Mga {
     UserCredentials: Will log you on with basic authentication.
     RedirectUri: Will log you on with MFA Authentication.
     The OauthToken is automatically renewed when you use cmdlets.
-
-    .PARAMETER Thumbprint
-    Use a certificate thumbprint to log on with. Connec-Mga will search for the certificate in the cert store.
     
     .PARAMETER Certificate
     Use a Cert to log on. you can use where X's is the certificate thumbprint:
@@ -51,10 +48,7 @@ function Connect-Mga {
     'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
     Or
     XXXXXXX.onmicrosoft.com
-    
-    .PARAMETER LoginScope
-    You can only use LoginScope with RedirectUri, but unfortunately the token will always include all permissions the app has.
-    
+
     .PARAMETER Force
     Use -Force when you want to overwrite another connection (or Accept the confirmation).
     
@@ -76,13 +70,12 @@ function Connect-Mga {
     #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true, ParameterSetName = 'Thumbprint')]
-        [ValidateScript( { $_.length -eq 40 })]
-        [string]
-        $Thumbprint, 
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [ValidateScript( { ($_.length -eq 40) -or ([System.Security.Cryptography.X509Certificates.X509Certificate2]$_) })]
+        [Alias('Thumbprint')]
         $Certificate,
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
+        [Alias('Secret')]
         [string]
         $ClientSecret, 
         [Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
@@ -92,15 +85,12 @@ function Connect-Mga {
         [System.Net.ICredentials]
         $UserCredentials,
         [Parameter(Mandatory = $true)]
+        [Alias('ClientID', 'AppID')]
         [String]
         $ApplicationID,
         [Parameter(Mandatory = $true)]
         [String]
         $Tenant,
-        <#[Parameter(Mandatory = $false, ParameterSetName = 'RedirectUri')]
-        [AllowEmptyString()]  
-        [Object]
-        $LoginScope,#>
         [Parameter(Mandatory = $false)]
         [Switch]
         $Force
@@ -113,8 +103,13 @@ function Connect-Mga {
         else {
             Initialize-MgaConnect
         }
+ 
+        if ($Certificate.length -eq 40) {
+            $Thumbprint = $Certificate
+        }
     }
     process {
+    
         if ($Thumbprint) {
             Write-Verbose "Connect-Mga: Thumbprint: Logging in with Thumbprint."
             Receive-MgaOauthToken `
@@ -142,7 +137,6 @@ function Connect-Mga {
                 -ApplicationID $ApplicationID `
                 -Tenant $Tenant `
                 -RedirectUri $RedirectUri 
-             #   -LoginScope $LoginScope
         }
         elseif ($UserCredentials) {
             Write-Verbose "Connect-Mga: Basic UserCredentials: Logging in with Basic UserCredentials."
@@ -153,7 +147,7 @@ function Connect-Mga {
         }
     }
     end {
-        return "You've successfully logged in to Microsoft.Graph.API."
+        return "You've successfully created an AccessToken for the Microsoft.Graph.API"
     }
 }
 
@@ -189,7 +183,7 @@ function Disconnect-Mga {
         }
     }
     end {
-        return "You've successfully logged out."
+        return "You've successfully removed the Mga Scope"
     }
 }
 
@@ -233,10 +227,16 @@ function Get-Mga {
         $URL,
         [Parameter(Mandatory = $false)]      
         [switch]
-        $Once
+        $Once,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $CustomHeader
     )
     begin {
         Update-MgaOauthToken
+        if ($CustomHeader) {
+            Enable-MgaCustomHeader -CustomHeader $CustomHeader
+        }
     }
     process {
         try {
@@ -285,18 +285,11 @@ function Get-Mga {
             }
         }
         catch [System.Net.WebException] {
-            Write-Warning "WebException Error message! This could be due to throttling limit."
             $WebResponse = $_.Exception.Response
             if ($WebResponse.StatusCode -eq 429) {
-                if ($MgaThrottleHit) {
-                    $MgaThrottleHit.add('15')
-                }
                 [int]$RetryValue = $WebResponse.Headers['Retry-After']
                 Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
-                if ($MgaThrottleHit) {
-                    $MgaThrottleHit.add('False')
-                }
                 if ($Result.'@odata.nextLink') {
                     Get-Mga -URL $Result.'@odata.nextLink'
                 }
@@ -313,6 +306,9 @@ function Get-Mga {
         }
     }
     end {
+        if ($CustomHeader) {
+            Disable-MgaCustomHeader
+        }
         return $EndResult
     }
 }
@@ -351,10 +347,16 @@ function Post-Mga {
         $URL,
         [Parameter(Mandatory = $false)]
         [object]
-        $InputObject
+        $InputObject,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $CustomHeader
     )
     begin {
         Update-MgaOauthToken
+        if ($CustomHeader) {
+            Enable-MgaCustomHeader -CustomHeader $CustomHeader
+        }
         $InputObject = ConvertTo-MgaJson -InputObject $InputObject
     }
     process {
@@ -385,7 +387,102 @@ function Post-Mga {
         }
     }
     end {
+        if ($CustomHeader) {
+            Disable-MgaCustomHeader
+        }
         Write-Verbose "Post-Mga: We've successfully Posted the data to Microsoft.Graph.API."
+        return $Result
+    }
+}
+
+function Put-Mga {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    Put-Mga can be seen as the 'new' Verb. With this cmdlet you create objects in AzureAD.
+
+    .PARAMETER URL
+    URL to 'Put' to.
+    
+    .PARAMETER InputObject
+    -InputObject will accept a PSObject or JSON.
+    
+    .EXAMPLE
+    $InputObject = @{
+        accountEnabled    = 'true'
+        displayName       = "Test User Put MSGraph"
+        mailNickname      = "TestUserPutMSGraph"
+        userPrincipalName = "TestUserPutMSGraph@XXXXXXXXX.onmicrosoft.com"
+        passwordProfile   = @{
+            forceChangePasswordNextSignIn = 'true'
+            password                      = 'XXXXXXXXXX'
+        }
+    }
+    Put-Mga -URL 'https://graph.microsoft.com/v1.0/users' -InputObject $InputObject
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string]
+        $URL,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $InputObject,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $CustomHeader
+    )
+    begin {
+        Update-MgaOauthToken
+        if (($Customheader) -and ($URL -notlike "*/uploadSession*")) {
+            Enable-MgaCustomHeader -CustomHeader $CustomHeader
+        }
+        elseif ($URL -notlike "*/uploadSession*") {
+            $InputObject = ConvertTo-MgaJson -InputObject $InputObject
+        }
+    }
+    process {
+        try {
+            if ($InputObject) {
+                Write-Verbose "Put-Mga: Puting InputObject to Microsoft.Graph.API."
+                if (($Customheader) -and ($URL -like "*/UploadSession*")) {
+                    $Result = Invoke-RestMethod -Uri $URL -Headers $CustomHeader -Method Put -Body $InputObject
+                }
+                elseif ($CustomHeader) {
+                    $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method Put -Body $InputObject
+                }
+                else {
+                    $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method Put -Body $InputObject -ContentType application/json
+                }
+            }
+            else {
+                $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method Put -ContentType application/json    
+            }
+        }
+        catch [System.Net.WebException] {
+            Write-Warning "WebException Error message! This could be due to throttling limit."
+            $WebResponse = $_.Exception.Response
+            if ($WebResponse.StatusCode -eq 429) {
+                [int]$RetryValue = $WebResponse.Headers['Retry-After']
+                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+                Start-Sleep -Seconds $($RetryValue + 1) 
+                $Result = Put-Mga -URL $URL -InputObject $InputObject
+            }
+            else {
+                throw $_.Exception.Message
+            }
+        }
+        catch {
+            throw $_.Exception.Message
+        }
+    }
+    end {
+        if ($CustomHeader) {
+            Disable-MgaCustomHeader
+        }
+        Write-Verbose "Put-Mga: We've successfully Puted the data to Microsoft.Graph.API."
         return $Result
     }
 }
@@ -432,10 +529,16 @@ function Patch-Mga {
         $InputObject,
         [Parameter(Mandatory = $false)]
         [switch]
-        $Batch
+        $Batch,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $CustomHeader
     )
     begin {
         Update-MgaOauthToken
+        if ($CustomHeader) {
+            Enable-MgaCustomHeader -CustomHeader $CustomHeader
+        }
         $ValidateJson = ConvertTo-MgaJson -InputObject $InputObject -Validate
         if ($Batch -eq $true) {
             Write-Warning 'Patch-Mga: begin: Parameter Batch will only work when the InputObject contains property: members@odata.bind. If this is not the case -Batch will be ignored.'
@@ -475,6 +578,9 @@ function Patch-Mga {
         }
     }
     end {
+        if ($CustomHeader) {
+            Disable-MgaCustomHeader
+        }
         Write-Verbose "Patch-Mga: We've successfully Patched the data to Microsoft.Graph.API."
         return $Result
     }
@@ -509,10 +615,16 @@ function Delete-Mga {
         $URL,
         [Parameter(Mandatory = $false)]
         [string]
-        $InputObject
+        $InputObject,
+        [Parameter(Mandatory = $false)]
+        [object]
+        $CustomHeader
     )
     begin {
         Update-MgaOauthToken
+        if ($CustomHeader) {
+            Enable-MgaCustomHeader -CustomHeader $CustomHeader
+        }
         if ($InputObject) {
             $ValidateJson = ConvertTo-MgaJson -InputObject $InputObject -Validate
         }
@@ -559,6 +671,9 @@ function Delete-Mga {
         }
     }
     end {
+        if ($CustomHeader) {
+            Disable-MgaCustomHeader
+        }
         Write-Verbose "Delete-Mga: We've successfully deleted the data on Microsoft.Graph.API."
         return $Result
     }
@@ -621,6 +736,7 @@ function Batch-Mga {
         $InputObject,
         [Parameter(Mandatory = $false)]
         [string]
+        [Alias('CustomHeader')]
         $Headers,
         [Parameter(Mandatory = $false)]
         [switch]
@@ -746,341 +862,8 @@ function Batch-Mga {
         return $EndResult | Sort-Object id
     }
 }
-
-function Send-MgaMail {
-    <#
-    .LINK
-    https://github.com/baswijdenes/Optimized.Mga/tree/main
-
-    .SYNOPSIS
-    Sends emails with Microsoft Graph.
-    
-    .DESCRIPTION
-    Send-MgaMail uses the Microsoft Graph v1.0 REST API.
-    You need Mail.Send permissions.
-
-    .PARAMETER To
-    To accepts an array of addresses.
-    
-    .PARAMETER Subject
-    Is the email subject.
-    
-    .PARAMETER Body
-    Is the email body.
-    
-    .PARAMETER From
-    Add the From address when logged in with Application permissions.
-    When logged in with user credentials the From address will automatically be the userLogon. This is also displayed in a warning message.
-    
-    .PARAMETER Attachments
-    Attachments accepts an Array. Make sure to use the FullName (Including Path).
-    Example:
-    'C:\Temp\Attachment.txt','C:\Temp\Attachment2.txt'
-
-    .EXAMPLE
-    Send-MgaMail -From 'John.Doe@XXXXXXXXXXX.onmicrosoft.com' -To 'Jack.Doe@contoso.com' -Subject 'Test message' -Body 'This is a test message'
-
-    .EXAMPLE
-    Send-MgaMail -To 'Jack.Doe@contoso.com' -Subject 'Test message' -Body 'This is a test message'
-    #>
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)]
-        [ValidateScript( { $_ -like "*@*" })]
-        [string[]]
-        $To,
-        [Parameter(Mandatory = $true)]
-        [string]
-        $Subject,
-        [Parameter(Mandatory = $true)]
-        [string]
-        $Body,
-        [Parameter(Mandatory = $false)]
-        [ValidateScript( { $_ -like "*@*" })]
-        [string]
-        $From,
-        [Parameter(Mandatory = $false)]
-        [object]
-        $AttachmentPaths,
-        [Parameter(Mandatory = $false)]
-        [object]
-        $AttachmentObjects
-    )
-    begin {
-        try {
-            $URL = 'https://graph.microsoft.com/v1.0/me/sendMail'
-            $ToList = [System.Collections.Generic.List[System.Object]]::new()
-            foreach ($Address in $To) {
-                $Object = [PSCustomObject]@{
-                    emailAddress = [PSCustomObject] @{
-                        'address' = $Address
-                    }
-                }
-                $ToList.Add($Object)
-            }
-            $Message = [PSCustomObject] @{
-                message = [PSCustomObject] @{
-                    subject      = $subject
-                    body         = [PSCustomObject] @{
-                        contentType = 'HTML'
-                        content     = $body
-                    }
-                    ToRecipients = @($ToList)
-                }
-            }
-            if (($AttachmentPaths) -or ($AttachmentObjects)) {
-                Write-Verbose "Send-MgaMail: process: Attachment parameter found."
-                $AttachmentsList = [System.Collections.Generic.List[System.Object]]::new()
-                if ($AttachmentPaths) {
-                    foreach ($Attachment in $AttachmentPaths) {
-                        try {
-                            Write-Verbose "Send-MgaMail: process: Testing path to $Attachment."
-                            $FileBytes = Get-Content -Path $Attachment -Encoding Byte -ErrorAction stop
-                            $AttachmentName = $Attachment.split('\') | Select-Object -Last 1
-                            $Base64String = ([System.Convert]::ToBase64String($FileBytes))
-                            $AttachmentsNode = [PSCustomObject]@{
-                                "@odata.type"  = "#microsoft.graph.fileAttachment"
-                                "name"         = $AttachmentName
-                                "contentBytes" = $Base64String
-                            }
-                            $AttachmentsList.Add($AttachmentsNode)
-                        }
-                        catch {
-                            Write-Warning "There is an error with $AttachmentPath. We will continue despite error."
-                            continue
-                        }
-                    }
-                }
-                elseif ($AttachmentObjects) {
-                    foreach ($AttachmentObject in $AttachmentObjects) {
-                        try {
-                            Write-Verbose "Send-MgaMail: process: Converting object to Base64String."
-                            $Bytes = [System.Text.Encoding]::Unicode.GetBytes($AttachmentObject.Content)
-                            $Base64String = [System.Convert]::ToBase64String($Bytes)
-                            $AttachmentsNode = [PSCustomObject]@{
-                                "@odata.type"  = "#microsoft.graph.fileAttachment"
-                                "name"         = $AttachmentObject.Name
-                                "contentBytes" = $Base64String
-                            }
-                            $AttachmentsList.Add($AttachmentsNode)
-                        }
-                        catch {
-                            Write-Warning "There is an error with $AttachmentObject. We will continue despite error."
-                            continue
-                        }
-                    }
-                }
-                $Message = [PSCustomObject] @{
-                    message = [PSCustomObject] @{
-                        subject      = $subject
-                        body         = [PSCustomObject] @{
-                            contentType = 'HTML'
-                            content     = $body
-                        }
-                        toRecipients = @($ToList)
-                        Attachments  = @($AttachmentsList)
-                    }
-                }
-            }
-            if ($From.length -gt 0) {
-                if (($global:MgaRU.result.length -ge 1) -and ($global:MgaRU.result.account.Username -ne $From)) {
-                    Write-Warning "You have logged in with Credentials. We cannot use a different Email Address than $From. We will use $From to send email from." 
-                    $From = $global:MgaRU.result.account.Username
-                }
-                if (($global:MgaBasic.access_token.length -ge 1) -and ($global:MgaUserCredentials.UserName -ne $From)) {
-                    Write-Warning "You have logged in with Credentials. We cannot use a different Email Address than $From. We will use $From to send email from." 
-                    $From = $global:MgaUserCredentials.UserName 
-                }
-                Write-Verbose "Send-MgaMail: From address is $From."
-                $FromNode = [PSCustomObject] @{
-                    emailAddress = [PSCustomObject] @{
-                        'address' = $From
-                    }
-                }
-                $Message | Add-Member -MemberType NoteProperty -Name 'From' -Value $FromNode
-                $URL = "https://graph.microsoft.com/v1.0/users/$($From)/sendMail"
-            }
-        }
-        catch {
-            throw $_.Exception.Message
-        }
-    }
-    process {
-        try {
-            Write-Verbose 'Send-MgaMail: Sending email...'
-            Post-Mga -URL $URL -InputObject $Message
-        }
-        catch {
-            throw $_.Exception.Message
-        }
-    }
-    end {
-        return "Email to $To with subject $Subject has been sent succesfully."
-    }
-}
 #endregion main
 #region experimental
-function Start-MgaRunspaces {
-    [CmdletBinding()]
-    param (
-        [parameter(mandatory = $true)]
-        $MaxThreads,
-        [parameter(mandatory = $true)]
-        [MgaRunspaces]$InputObject
-    )
-    begin {
-        if (!($global:MgaRunspacesResults)) {
-
-        }
-        if (!($global:MgaThrottleHit)) {
-            $global:MgaThrottleHit = [System.Collections.Generic.List[Object]]::new()
-        }
-        else {
-            if (($global:MgaThrottleHit | Select-Object -Last 1) -ne 'False') {
-                Write-Warning "Throttlelimit hit! we will sleep for $($global:MgaThrottleHit | Select-Object -Last 1)"
-                Start-Sleep -Seconds $($global:MgaThrottleHit | Select-Object -Last 1)
-            }
-        }
-        $ParamsList = @{
-            'MgaHeaderParameters' = $global:MgaHeaderParameters
-            'MgaApplicationID'    = $global:MgaApplicationID
-            'MgaTenant'           = $global:MgaTenant
-        }       
-        $ScriptTry = @'
-        try {
-            Import-Module "C:\OneDrive\Documents\Developer\Programming\PowerShell\Repositories\BWIT - Public Repository\Optimized.Mga\Optimized.Mga\Optimized.Mga.psd1"
-
-'@
-        $ScriptThrow = @'
-        
-    }
-        catch {
-            throw $_.Exception.Message
-        }
-'@
-        if ($null -ne $global:MgaAppPass) {
-            $ParamsList.Add('MgaAppPass', $global:MgaAppPass)
-            $ParamsList.Add('MgaSecret', $global:MgaSecret)
-            $ScriptStart = {
-                param ($MgaHeaderParameters, $MgaApplicationID, $MgaTenant, $MgaAppPass, $MgaSecret, $MgaThrottleHit)
-            }
-        }
-        elseif ($null -ne $global:MgaCert) {
-            $ParamsList.Add('MgaCert', $global:MgaCert)
-            $ParamsList.Add('MgaCertificate', $global:MgaCertificate)
-            $ScriptStart = {
-                param ($MgaHeaderParameters, $MgaApplicationID, $MgaTenant, $MgaAppPass, $MgaCertificate)
-            }
-        }
-        elseif ($null -ne $global:MgaTPrint) {
-            $ParamsList.Add('MgaTPrint', $global:MgaTPrint)
-            $ParamsList.Add('MgaThumbprint', $global:MgaThumbprint)
-            $ScriptStart = {
-                param ($MgaHeaderParameters, $MgaApplicationID, $MgaTenant, $MgaAppPass, $MgaThumbprint)
-            }         
-        }
-        elseif ($null -ne $global:MgaRU) {
-            $ParamsList.Add('MgaRU', $global:MgaRU)
-            $ParamsList.Add('MgaRedirectUri', $global:MgaRedirectUri)
-            $ParamsList.Add('MgaLoginScope', $global:MgaLoginScope)
-            $ScriptStart = {
-                param ($MgaHeaderParameters, $MgaApplicationID, $MgaTenant, $MgaAppPass, $MgaRedirectUri, $MgaLoginScope)
-            }
-        }
-        elseif ($null -ne $global:MgaBasic) {
-            $ParamsList.Add('MgaBasic', $global:MgaBasic)
-            $ParamsList.Add('MgaUserCredentials', $global:MgaUserCredentials)
-            $ScriptStart = {
-                param ($MgaHeaderParameters, $MgaApplicationID, $MgaTenant, $MgaAppPass, $MgaUserCredentials)
-            }
-        }
-        else {
-            Throw "You need to run Connect-Mga before you can continue. Exiting script..."
-        }
-        switch ($InputObject.Method) {
-            ('Get') {
-                $Script = @"
-                    Get-Mga -URL $($InputObject.URL)
-"@
-            }
-            ('Post') {
-                if ($null -ne $InputObject.InputObject) {
-                    $Script = {
-                        Post-Mga -URL $InputObject.URL -InputObject $InputObject.InputObject
-                    }
-                }
-                else {
-                    $Script = {
-                        Post-Mga -URL $InputObject.URL
-                    }
-                }
-            }
-            ('Put') {
-                if ($null -ne $InputObject.InputObject) {
-                    $Script = {
-                        Put-Mga -URL $InputObject.URL -InputObject $InputObject.InputObject
-                    }
-                }
-                else {
-                    $Script = {
-                        Put-Mga -URL $InputObject.URL
-                    }
-                }
-            }
-            ('Delete') {
-                if ($null -ne $InputObject.InputObject) {
-                    $Script = {
-                        Delete-Mga -URL $InputObject.URL -InputObject $InputObject.InputObject
-                    }
-                }
-                else {
-                    $Script = {
-                        Delete-Mga -URL $InputObject.URL
-                    }
-                }
-            }
-            ('Patch') {
-                if ($null -ne $InputObject.InputObject) {
-                    $Script = {
-                        Patch-Mga -URL $InputObject.URL -InputObject $InputObject.InputObject
-                    }
-                }
-                else {
-                    $Script = {
-                        Patch-Mga -URL $InputObject.URL
-                    }
-                }
-            }
-        }
-        $ScriptBlock = [ScriptBlock]::Create($ScriptStart.ToString() + $ScriptTry + $Script + $ScriptThrow)
-    }
-    process {
-        if ($null -eq $global:MgaJobs) {
-            $RunspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxThreads)
-            $RunspacePool.ApartmentState = [System.Threading.ApartmentState]::MTA  
-            $RunspacePool.Open()
-            $global:MgaJobs = [System.Collections.Generic.List[Object]]::new()
-        }
-        $PowerShell = [powershell]::Create()
-        $PowerShell.RunspacePool = $RunspacePool
-        [void]$PowerShell.AddScript($ScriptBlock)
-        [void]$PowerShell.AddParameters($ParamsList)
-        [void]$PowerShell.AddParameter('MgaThrottleHit', $global:MgaThrottleHit)
-        $Job = $PowerShell.BeginInvoke()
-        $Object = [PSCustomObject]@{
-            Job        = $Job
-            PowerShell = $PowerShell
-        }
-        $global:MgaJobs.Add($Object) 
-    }   
-    end {
-        foreach ($Job in $global:MgaJobs | Where-Object { $_.Job.IsCompleted -eq 'True' }) {
-            $Return = $Job.PowerShell.EndInvoke($Job.Job)
-            [void]$Job.PowerShell.Dispose()
-            return $Return
-        }
-    }
-}
 #endregion experimental
 #region internal
 function Initialize-MgaConnect {
@@ -1096,7 +879,7 @@ function Initialize-MgaConnect {
         }
         else {
             Write-Verbose "Initialize-MgaConnect: Aborting log in."
-            throw 'Login aborted.'
+            throw 'Login aborted'
         }
     }
 }
@@ -1128,7 +911,7 @@ function Update-MgaOauthToken {
             -ApplicationID $global:MgaApplicationID `
             -Tenant $global:MgaTenant `
             -RedirectUri $global:MgaRedirectUri 
-           # -LoginScope $global:MgaLoginScope
+        # -LoginScope $global:MgaLoginScope
     }
     elseif ($null -ne $global:MgaBasic) {
         Receive-MgaOauthToken `
@@ -1173,8 +956,8 @@ function Receive-MgaOauthToken {
             $global:MgaTenant = $Tenant
             $global:MgaApplicationID = $ApplicationID
             <#if ($null -eq $LoginScope) {#>
-                [System.Collections.Generic.List[String]]$LoginScope = @('https://graph.microsoft.com/.default')
-                        <#
+            [System.Collections.Generic.List[String]]$LoginScope = @('https://graph.microsoft.com/.default')
+            <#
             }
             else {
                 $Data = @('https://graph.microsoft.com/')
@@ -1577,6 +1360,69 @@ function Optimize-Mga {
     }
     end {
         return $Results
+    }
+}
+
+function Enable-MgaCustomHeader {
+    [CmdletBinding()]
+    param (
+        $CustomHeader
+    )
+    
+    begin {
+        Write-Verbose 'Enable-MgaCustomHeader: begin: saving original header.'
+        $global:MgaOriginalHeader = @{}
+        foreach ($Header in $global:MgaHeaderParameters.GetEnumerator()) {
+            $global:MgaOriginalHeader.Add($Header.Key, $Header.Value)
+        }
+    }
+    process {
+        Write-Verbose 'Enable-MgaCustomHeader: begin: Merging headers.'
+        # $global:MgaHeaderParameters = $global:MgaOriginalHeader + $CustomHeader
+        foreach ($Header in $CustomHeader.GetEnumerator()) {
+            try {
+                if ($null -ne $global:MgaHeaderParameters[$Header.Key]) {
+                    $global:MgaHeaderParameters[$item.Key] = $Header.Value
+                }
+                else {
+                    $global:MgaHeaderParameters.Add($Header.key, $Header.Value)
+                }
+            }
+            catch {
+                throw $_.Exception.Message
+            }
+        }   
+    } 
+    end {
+        Write-Verbose 'Enable-MgaCustomHeader: end: CustomHeader created.'
+    }
+}
+
+function Disable-MgaCustomHeader {
+    [CmdletBinding()]
+    param (
+    )
+    begin {
+        Write-Verbose 'Disable-MgaCustomHeader: begin: Changing back to original header.'
+    }
+    process {
+        try {
+            if ($global:MgaHeaderParameters -ne $global:MgaOriginalHeader) {
+                Write-Verbose 'Disable-MgaCustomHeader: process: Reverting header.'
+                $global:MgaHeaderParameters = @{}
+                $global:MgaHeaderParameters += $global:MgaOriginalHeader
+                Remove-Variable -Name 'MgaOriginalHeader' -Scope Global
+            }
+            else {
+                Write-Verbose "Disable-MgaCustomHeader: process: Header is already original header."
+            }
+        }
+        catch {
+            throw 'Something went wrong with reverting back to original header. Re-login with Connect-Mga to continue.'
+        }
+    } 
+    end {
+        Write-Verbose 'Disable-MgaCustomHeader: end: Header changed back to original header.'
     }
 }
 #endregion internal
