@@ -261,6 +261,7 @@ Go to [Speed](#Speed) or [Bulk](#Bulk) for more.
 Batch-Mga will take care of the limitations(20 requests per batch) and will sleep for the amount of time a throttle limit is returned and then continue.
 
 ### Examples 
+**Bulk delete users:**
 ```PowerShell
 $DeletedObjects = Get-Mga -URL 'https://graph.microsoft.com/v1.0/directory/deletedItems/microsoft.graph.user?$top=999'
 $Batch = [System.Collections.Generic.List[Object]]::new()
@@ -273,6 +274,7 @@ foreach ($User in $DeletedObjects) {
 }
 Batch-Mga -InputObject $batch
 ```
+**Bulk update officeLocation for users:**
 ```PowerShell
 $BatchDependsOn = [System.Collections.Generic.List[Object]]::new()
 foreach ($User in $Response) {
@@ -287,4 +289,49 @@ foreach ($User in $Response) {
     $test.Add($object)
 }
 Batch-Mga -InputObject $BatchDependsOn
+```
+**Bulk create users:**  
+$User Object is build like this: 
+
+```PowerShell
+$User = [PSCustomObject]@{
+    userPrincipalName = 'Bas@bwit.blog'
+    displayName       = 'Bas Wijdenes'
+    accountEnabled    = 'true'
+    mailNickname      = 'bas@bwit.blog'
+    passwordProfile   = [PSCustomObject]@{
+        password                      = 'H78302ehpib'
+        forceChangePasswordNextSignIn = 'true'
+    }
+}
+```
+
+Script and response:
+```PowerShell
+$Batch = [System.Collections.Generic.List[Object]]::new()
+foreach ($User in $CreatedUsers) {
+    $Object = [PSCustomObject]@{
+        Url    = "/users"
+        method = 'post'
+        body   = $User
+    }
+    $Batch.Add($object)
+}
+
+Batch-Mga -InputObject $batch
+
+id status code body
+-- ------ ---- ----
+1     201
+10    201
+11    201
+12    201
+13    201
+14    201
+15    201
+16    201
+17    201
+18    201
+19    201
+2     201
 ```
