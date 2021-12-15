@@ -436,7 +436,7 @@ function Put-Mga {
     )
     begin {
         Update-MgaOauthToken
-        if (($Customheader) -and ($URL -notlike "*/uploadSession*")) {
+        if ($Customheader) {
             Enable-MgaCustomHeader -CustomHeader $CustomHeader
         }
         elseif ($URL -notlike "*/uploadSession*") {
@@ -447,10 +447,7 @@ function Put-Mga {
         try {
             if ($InputObject) {
                 Write-Verbose "Put-Mga: Puting InputObject to Microsoft.Graph.API."
-                if (($Customheader) -and ($URL -like "*/UploadSession*")) {
-                    $Result = Invoke-RestMethod -Uri $URL -Headers $CustomHeader -Method Put -Body $InputObject
-                }
-                elseif ($CustomHeader) {
+                if ($CustomHeader) {
                     $Result = Invoke-RestMethod -Uri $URL -Headers $global:MgaheaderParameters -Method Put -Body $InputObject
                 }
                 else {
@@ -1012,6 +1009,7 @@ function Receive-MgaOauthToken {
                     else {
                         $global:MgaheaderParameters = @{
                             Authorization = $global:MgaAppPass.result.CreateAuthorizationHeader()
+                            'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'ClientSecret'
                         $global:MgaSecret = $Secret
@@ -1045,6 +1043,7 @@ function Receive-MgaOauthToken {
                     else {
                         $global:MgaheaderParameters = @{
                             Authorization = $global:MgaCert.result.CreateAuthorizationHeader()
+                            'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'Certificate'
                         $global:MgaCertificate = $Certificate
@@ -1078,6 +1077,7 @@ function Receive-MgaOauthToken {
                     else {
                         $global:MgaheaderParameters = @{
                             Authorization = $global:MgaTPrint.result.CreateAuthorizationHeader()
+                            'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'Thumbprint'
                         $global:MgaThumbprint = $Thumbprint
@@ -1111,6 +1111,7 @@ function Receive-MgaOauthToken {
                     else {
                         $global:MgaheaderParameters = @{
                             Authorization = $global:MgaRU.Result.CreateAuthorizationHeader()
+                            'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'RedirectUri'
                         $global:MgaRedirectUri = $RedirectUri
@@ -1154,6 +1155,7 @@ function Receive-MgaOauthToken {
                     else {
                         $global:MgaheaderParameters = @{
                             Authorization = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
+                            'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'UserCredentials'
                         $global:MgaUserCredentials = $UserCredentials
@@ -1176,6 +1178,7 @@ function Receive-MgaOauthToken {
                         else {
                             $global:MgaheaderParameters = @{
                                 Authorization = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
+                                'Content-Type' = 'application/json'
                             }
                             $global:MgaLoginType = 'UserCredentials'
                             $global:MgaUserCredentials = $UserCredentials
@@ -1382,7 +1385,7 @@ function Enable-MgaCustomHeader {
         foreach ($Header in $CustomHeader.GetEnumerator()) {
             try {
                 if ($null -ne $global:MgaHeaderParameters[$Header.Key]) {
-                    $global:MgaHeaderParameters[$item.Key] = $Header.Value
+                    $global:MgaHeaderParameters[$Header.Key] = $Header.Value
                 }
                 else {
                     $global:MgaHeaderParameters.Add($Header.key, $Header.Value)
@@ -1409,9 +1412,13 @@ function Disable-MgaCustomHeader {
         try {
             if ($global:MgaHeaderParameters -ne $global:MgaOriginalHeader) {
                 Write-Verbose 'Disable-MgaCustomHeader: process: Reverting header.'
+                write-output 1
                 $global:MgaHeaderParameters = @{}
+                write-output 2
                 $global:MgaHeaderParameters += $global:MgaOriginalHeader
+                write-output 3
                 Remove-Variable -Name 'MgaOriginalHeader' -Scope Global
+                write-output 4
             }
             else {
                 Write-Verbose "Disable-MgaCustomHeader: process: Header is already original header."
