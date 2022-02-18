@@ -12,9 +12,10 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 - [Optimized.Mga.AzureAD](https://github.com/baswijdenes/Optimized.Mga.AzureAD)
 
 ## UPDATES VERSIONS
-* [0.0.2.0.md](./.Versions/0.0.2.3.md)
-* [0.0.2.0.md](./.Versions/0.0.2.2.md)
-* [0.0.2.1.md](/.Versions/0.0.2.1.md)
+* [0.0.2.5.md](./.Versions/0.0.2.5.md)
+* [0.0.2.3.md](./.Versions/0.0.2.3.md)
+* [0.0.2.2.md](./.Versions/0.0.2.2.md)
+* [0.0.2.1.md](./.Versions/0.0.2.1.md)
 * [0.0.2.0.md](./.Versions/0.0.2.0.md)
 
 ## Are you new with the Microsoft Graph API? 
@@ -118,6 +119,7 @@ Delete-Mga -URL $UserList
 
 * [Connect-Mga](#Connect-Mga)
 * [Disconnect-Mga](#Disconnect-Mga)
+* [Show-MgaAccessToken](#Show-MgaAccessToken)
 * [Get-Mga](#Get-Mga)
 * [Post-Mga](#Post-Mga)
 * [Patch-Mga](#Patch-Mga)
@@ -159,6 +161,16 @@ To update the OauthToken I fill the global scope with a number of properties. Th
 ````PowerShell
 Disconnect-Mga
 ````
+---
+## Show-MgaAccessToken
+With `Show-MgaAccessToken` you can request a decoded Token and see what is in their (normally you would paste it into (jwt.ms)[jwt.ms]).  
+With the `-Roles` switch you can also only ask the roles you have assigned to the application registration.  
+
+```PowerShell
+Show-MgaAccessToken
+
+Show-MgaAccessToken -Roles
+```
 ---
 ## Get-Mga
 Get-Mga speaks for itself. All you have to provide is the URL.
