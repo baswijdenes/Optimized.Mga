@@ -187,6 +187,59 @@ function Disconnect-Mga {
     }
 }
 
+function Show-MgaAccessToken {
+    [CmdletBinding()]
+    param (
+        [parameter(mandatory = $false)]
+        $AccessToken = ($global:MgaheaderParameters).Authorization,
+        [parameter(mandatory = $false)]
+        [switch]
+        $Roles
+    )  
+    begin {
+        if ($AccessToken -like "Bearer *") {
+            Write-Verbose "Show-MgaAccessToken: begin: Removing 'Bearer ' from token for formatting"
+        }
+        $AccessToken = ($AccessToken).Replace('Bearer ', '')
+        $AccessTokenSplitted = $AccessToken.Split('.')
+        
+        Write-Verbose "Show-MgaAccessToken: begin: Formatting Header"
+        $AccessTokenHeader = $AccessTokenSplitted[0].Replace('-', '+').Replace('_', '/')
+        While ($AccessTokenHeader.Length % 4) {
+            Write-Verbose "Show-MgaAccessToken: begin: Adding '=' character so we can modulus 4 for Base64 encoding"
+            $AccessTokenHeader += '='
+        }      
+        Write-Verbose "Show-MgaAccessToken: begin: Formatting PayLoad"
+        $AccessTokenPayLoad = $AccessTokenSplitted.Split(".")[1].Replace('-', '+').Replace('_', '/')
+        While ($AccessTokenPayLoad.Length % 4) {
+            Write-Verbose "Show-MgaAccessToken: begin: Adding '=' character so we can modulus 4 for Base64 encoding"
+            $AccessTokenPayLoad += '='
+        }
+    }
+    process {
+        Write-Verbose "Show-MgaAccessToken: process: Decoding Header to JSON"
+        $AccessTokenHeaderJSON = [System.Text.Encoding]::ASCII.GetString([system.convert]::FromBase64String($AccessTokenHeader))
+        Write-Verbose "Show-MgaAccessToken: process: Decoding PayLoad to JSON"
+        $AccessTokenPayLoadJSON = [System.Text.Encoding]::ASCII.GetString([system.convert]::FromBase64String($AccessTokenPayLoad))
+        Write-Verbose "Show-MgaAccessToken: process: Removing last character from Header"
+        $AccessTokenHeaderUpdated = $AccessTokenHeaderJSON -replace ".$"
+        Write-Verbose "Show-MgaAccessToken: process: Replacing first character by ',' in PayLoad"
+        $AccessTokenPayLoadUpdated = $AccessTokenPayLoadJSON -Replace '^.', ','
+        Write-Verbose "Show-MgaAccessToken: process: Adding PayLoad to Header"
+        $AccessTokenJson = $AccessTokenHeaderUpdated + $AccessTokenPayLoadUpdated
+        Write-Verbose "Show-MgaAccessToken: process: Converting from Json to EndResult"
+        $AccessTokenEndResult = $AccessTokenJson | ConvertFrom-Json
+    }  
+    end {
+        if ($Roles -eq $true) {
+            Write-Verbose "Show-MgaAccessToken: end: Roles switch found | returning roles only"
+            return $AccessTokenEndResult.Roles
+        } else {
+            return $AccessTokenEndResult
+        }
+    }
+}
+
 function Get-Mga {
     <#
     .LINK
@@ -1008,7 +1061,7 @@ function Receive-MgaOauthToken {
                     }
                     else {
                         $global:MgaheaderParameters = @{
-                            Authorization = $global:MgaAppPass.result.CreateAuthorizationHeader()
+                            Authorization  = $global:MgaAppPass.result.CreateAuthorizationHeader()
                             'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'ClientSecret'
@@ -1042,7 +1095,7 @@ function Receive-MgaOauthToken {
                     }
                     else {
                         $global:MgaheaderParameters = @{
-                            Authorization = $global:MgaCert.result.CreateAuthorizationHeader()
+                            Authorization  = $global:MgaCert.result.CreateAuthorizationHeader()
                             'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'Certificate'
@@ -1076,7 +1129,7 @@ function Receive-MgaOauthToken {
                     }
                     else {
                         $global:MgaheaderParameters = @{
-                            Authorization = $global:MgaTPrint.result.CreateAuthorizationHeader()
+                            Authorization  = $global:MgaTPrint.result.CreateAuthorizationHeader()
                             'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'Thumbprint'
@@ -1110,7 +1163,7 @@ function Receive-MgaOauthToken {
                     }
                     else {
                         $global:MgaheaderParameters = @{
-                            Authorization = $global:MgaRU.Result.CreateAuthorizationHeader()
+                            Authorization  = $global:MgaRU.Result.CreateAuthorizationHeader()
                             'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'RedirectUri'
@@ -1154,7 +1207,7 @@ function Receive-MgaOauthToken {
                     }
                     else {
                         $global:MgaheaderParameters = @{
-                            Authorization = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
+                            Authorization  = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
                             'Content-Type' = 'application/json'
                         }
                         $global:MgaLoginType = 'UserCredentials'
@@ -1177,7 +1230,7 @@ function Receive-MgaOauthToken {
                         }
                         else {
                             $global:MgaheaderParameters = @{
-                                Authorization = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
+                                Authorization  = "$($global:MgaBasic.token_type) $($global:MgaBasic.access_token)"
                                 'Content-Type' = 'application/json'
                             }
                             $global:MgaLoginType = 'UserCredentials'
