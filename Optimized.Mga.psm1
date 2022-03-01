@@ -41,6 +41,9 @@ function Connect-Mga {
     ApplicationID is the ID for the AzureAD application. It should look like this:
     'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
 
+    .PARAMETER ManagedIdentity
+    This is a switch for when it's a Managed Identity authenticating to Microsoft Graph API.
+
     .PARAMETER Tenant
     Tenant is the TenantID or onmicrosoft.com address. Don't confuse this with ApplicationID.
 
@@ -67,6 +70,8 @@ function Connect-Mga {
 
     .EXAMPLE
     Connect-Mga -redirectUri 'msalXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX://auth' -Tenant 'XXXXXXXX.onmicrosoft.com'  -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
+
+    Connect-Mga -ManagedIdentity
     #>
     [CmdletBinding()]
     param (
@@ -84,11 +89,23 @@ function Connect-Mga {
         [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
         [System.Net.ICredentials]
         $UserCredentials,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ManagedIdentity')]
+        # [ValidateSet('VirtualMachine', 'VM', 'AzAutomation', 'Automation', 'AA', 'AzFunction', 'Function', 'AppService', 'TryMe')]
+        [switch]
+        $ManagedIdentity,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
         [Alias('ClientID', 'AppID')]
         [String]
         $ApplicationID,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
         [String]
         $Tenant,
         [Parameter(Mandatory = $false)]
@@ -108,43 +125,52 @@ function Connect-Mga {
             $Thumbprint = $Certificate
         }
     }
-    process {
-    
-        if ($Thumbprint) {
-            Write-Verbose "Connect-Mga: Thumbprint: Logging in with Thumbprint."
-            Receive-MgaOauthToken `
-                -ApplicationID $ApplicationID `
-                -Tenant $Tenant `
-                -Thumbprint $Thumbprint 
+    process { 
+        try {
+            if ($Thumbprint) {
+                Write-Verbose "Connect-Mga: Thumbprint: Logging in with Thumbprint."
+                Receive-MgaOauthToken `
+                    -ApplicationID $ApplicationID `
+                    -Tenant $Tenant `
+                    -Thumbprint $Thumbprint 
+            }
+            elseif ($Certificate) {
+                Write-Verbose "Connect-Mga: Certificate: Logging in with certificate."
+                Receive-MgaOauthToken `
+                    -ApplicationID $ApplicationID `
+                    -Tenant $Tenant `
+                    -Certificate $Certificate 
+            }
+            elseif ($ClientSecret) {
+                Write-Verbose "Connect-Mga: RedirectUri: Logging in with RedirectUri."
+                Receive-MgaOauthToken `
+                    -ApplicationID $ApplicationID `
+                    -Tenant $Tenant `
+                    -ClientSecret $ClientSecret
+            }
+            elseif ($RedirectUri) {
+                Write-Verbose "Connect-Mga: MFA UserCredentials: Logging in with MFA UserCredentials."
+                Receive-MgaOauthToken `
+                    -ApplicationID $ApplicationID `
+                    -Tenant $Tenant `
+                    -RedirectUri $RedirectUri 
+            }
+            elseif ($UserCredentials) {
+                Write-Verbose "Connect-Mga: Basic UserCredentials: Logging in with Basic UserCredentials."
+                Receive-MgaOauthToken `
+                    -ApplicationID $ApplicationID `
+                    -Tenant $Tenant `
+                    -UserCredentials $UserCredentials 
+            }
+            elseif ($ManagedIdentity -eq $true) {
+                Write-Verbose "Connect-Mga: Managed Identity: Logging in with Managed Identity."
+                Receive-MgaOauthToken `
+                    -ManagedIdentity 'TryMe'
+            }
         }
-        elseif ($Certificate) {
-            Write-Verbose "Connect-Mga: Certificate: Logging in with certificate."
-            Receive-MgaOauthToken `
-                -ApplicationID $ApplicationID `
-                -Tenant $Tenant `
-                -Certificate $Certificate 
-        }
-        elseif ($ClientSecret) {
-            Write-Verbose "Connect-Mga: RedirectUri: Logging in with RedirectUri."
-            Receive-MgaOauthToken `
-                -ApplicationID $ApplicationID `
-                -Tenant $Tenant `
-                -ClientSecret $ClientSecret
-        }
-        elseif ($RedirectUri) {
-            Write-Verbose "Connect-Mga: MFA UserCredentials: Logging in with MFA UserCredentials."
-            Receive-MgaOauthToken `
-                -ApplicationID $ApplicationID `
-                -Tenant $Tenant `
-                -RedirectUri $RedirectUri 
-        }
-        elseif ($UserCredentials) {
-            Write-Verbose "Connect-Mga: Basic UserCredentials: Logging in with Basic UserCredentials."
-            Receive-MgaOauthToken `
-                -ApplicationID $ApplicationID `
-                -Tenant $Tenant `
-                -UserCredentials $UserCredentials 
-        }
+        catch {
+            throw $_ 
+        }  
     }
     end {
         return "You've successfully created an AccessToken for the Microsoft.Graph.API"
@@ -188,6 +214,27 @@ function Disconnect-Mga {
 }
 
 function Show-MgaAccessToken {
+    <#
+    .LINK
+    https://github.com/baswijdenes/Optimized.Mga/tree/main
+
+    .SYNOPSIS
+    You can use this cmdlet to show you the decoded Oauth token.
+    
+    .DESCRIPTION
+    Its mainly used for troubleshooting permission errors.
+    
+    .PARAMETER AccessToken
+    You can leave this empty unless you want to decode another Oauth token.
+
+    .PARAMETER Roles
+    By using the -Roles switch it will only show you the roles that you have assigned to your App registration.
+    
+    .EXAMPLE
+    Show-MgaAccessToken 
+
+    Show-MgaAccessToken -Roles
+    #>
     [CmdletBinding()]
     param (
         [parameter(mandatory = $false)]
@@ -197,44 +244,55 @@ function Show-MgaAccessToken {
         $Roles
     )  
     begin {
-        if ($AccessToken -like "Bearer *") {
-            Write-Verbose "Show-MgaAccessToken: begin: Removing 'Bearer ' from token for formatting"
-        }
-        $AccessToken = ($AccessToken).Replace('Bearer ', '')
-        $AccessTokenSplitted = $AccessToken.Split('.')
+        try {
+            if ($AccessToken -like "Bearer *") {
+                Write-Verbose "Show-MgaAccessToken: begin: Removing 'Bearer ' from token for formatting"
+            }
+            $AccessToken = ($AccessToken).Replace('Bearer ', '')
+            $AccessTokenSplitted = $AccessToken.Split('.')
         
-        Write-Verbose "Show-MgaAccessToken: begin: Formatting Header"
-        $AccessTokenHeader = $AccessTokenSplitted[0].Replace('-', '+').Replace('_', '/')
-        While ($AccessTokenHeader.Length % 4) {
-            Write-Verbose "Show-MgaAccessToken: begin: Adding '=' character so we can modulus 4 for Base64 encoding"
-            $AccessTokenHeader += '='
-        }      
-        Write-Verbose "Show-MgaAccessToken: begin: Formatting PayLoad"
-        $AccessTokenPayLoad = $AccessTokenSplitted.Split(".")[1].Replace('-', '+').Replace('_', '/')
-        While ($AccessTokenPayLoad.Length % 4) {
-            Write-Verbose "Show-MgaAccessToken: begin: Adding '=' character so we can modulus 4 for Base64 encoding"
-            $AccessTokenPayLoad += '='
+            Write-Verbose "Show-MgaAccessToken: begin: Formatting Header"
+            $AccessTokenHeader = $AccessTokenSplitted[0].Replace('-', '+').Replace('_', '/')
+            While ($AccessTokenHeader.Length % 4) {
+                Write-Verbose "Show-MgaAccessToken: begin: Adding '=' character so we can modulus 4 for Base64 encoding"
+                $AccessTokenHeader += '='
+            }      
+            Write-Verbose "Show-MgaAccessToken: begin: Formatting PayLoad"
+            $AccessTokenPayLoad = $AccessTokenSplitted.Split(".")[1].Replace('-', '+').Replace('_', '/')
+            While ($AccessTokenPayLoad.Length % 4) {
+                Write-Verbose "Show-MgaAccessToken: begin: Adding '=' character so we can modulus 4 for Base64 encoding"
+                $AccessTokenPayLoad += '='
+            }
+        }
+        catch {
+            throw $_
         }
     }
     process {
-        Write-Verbose "Show-MgaAccessToken: process: Decoding Header to JSON"
-        $AccessTokenHeaderJSON = [System.Text.Encoding]::ASCII.GetString([system.convert]::FromBase64String($AccessTokenHeader))
-        Write-Verbose "Show-MgaAccessToken: process: Decoding PayLoad to JSON"
-        $AccessTokenPayLoadJSON = [System.Text.Encoding]::ASCII.GetString([system.convert]::FromBase64String($AccessTokenPayLoad))
-        Write-Verbose "Show-MgaAccessToken: process: Removing last character from Header"
-        $AccessTokenHeaderUpdated = $AccessTokenHeaderJSON -replace ".$"
-        Write-Verbose "Show-MgaAccessToken: process: Replacing first character by ',' in PayLoad"
-        $AccessTokenPayLoadUpdated = $AccessTokenPayLoadJSON -Replace '^.', ','
-        Write-Verbose "Show-MgaAccessToken: process: Adding PayLoad to Header"
-        $AccessTokenJson = $AccessTokenHeaderUpdated + $AccessTokenPayLoadUpdated
-        Write-Verbose "Show-MgaAccessToken: process: Converting from Json to EndResult"
-        $AccessTokenEndResult = $AccessTokenJson | ConvertFrom-Json
+        try {
+            Write-Verbose "Show-MgaAccessToken: process: Decoding Header to JSON"
+            $AccessTokenHeaderJSON = [System.Text.Encoding]::ASCII.GetString([system.convert]::FromBase64String($AccessTokenHeader))
+            Write-Verbose "Show-MgaAccessToken: process: Decoding PayLoad to JSON"
+            $AccessTokenPayLoadJSON = [System.Text.Encoding]::ASCII.GetString([system.convert]::FromBase64String($AccessTokenPayLoad))
+            Write-Verbose "Show-MgaAccessToken: process: Removing last character from Header"
+            $AccessTokenHeaderUpdated = $AccessTokenHeaderJSON -replace ".$"
+            Write-Verbose "Show-MgaAccessToken: process: Replacing first character by ',' in PayLoad"
+            $AccessTokenPayLoadUpdated = $AccessTokenPayLoadJSON -Replace '^.', ','
+            Write-Verbose "Show-MgaAccessToken: process: Adding PayLoad to Header"
+            $AccessTokenJson = $AccessTokenHeaderUpdated + $AccessTokenPayLoadUpdated
+            Write-Verbose "Show-MgaAccessToken: process: Converting from Json to EndResult"
+            $AccessTokenEndResult = $AccessTokenJson | ConvertFrom-Json  
+        }
+        catch {
+            throw $_
+        }
     }  
     end {
         if ($Roles -eq $true) {
             Write-Verbose "Show-MgaAccessToken: end: Roles switch found | returning roles only"
             return $AccessTokenEndResult.Roles
-        } else {
+        }
+        else {
             return $AccessTokenEndResult
         }
     }
@@ -969,6 +1027,10 @@ function Update-MgaOauthToken {
             -Tenant $global:MgaTenant `
             -UserCredentials $global:MgaUserCredentials 
     }
+    elseif ($null -ne $global:MgaManagedIdentity) {
+        Receive-MgaOauthToken `
+            -ManagedIdentity $global:MgaManagedIdentityType
+    }
     else {
         Throw "You need to run Connect-Mga before you can continue. Exiting script..."
     }
@@ -977,10 +1039,18 @@ function Update-MgaOauthToken {
 function Receive-MgaOauthToken {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
         [string]
         $ApplicationID,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
         [string]
         $Tenant,
         [Parameter(Mandatory = $true, ParameterSetName = 'Thumbprint')]
@@ -989,7 +1059,10 @@ function Receive-MgaOauthToken {
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
         $Certificate, 
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
-        $ClientSecret, 
+        $ClientSecret,
+        [Parameter(Mandatory = $true, ParameterSetName = 'ManagedIdentity')]
+        [string]
+        $ManagedIdentity,
         [Parameter(Mandatory = $true, ParameterSetName = 'Redirecturi')]
         [string]
         $RedirectUri,
@@ -1227,6 +1300,11 @@ function Receive-MgaOauthToken {
                         $global:MgaBasic = Invoke-RestMethod -Method Post -Uri $loginURI/$Tenant/oauth2/token?api-version=1.0 -Body $Body -UseBasicParsing
                         if ($null -eq $global:MgaBasic.access_token) {
                             Write-Warning 'We did not retrieve an Oauth access token from the refresh_token. Re-trying to log in with new token.'
+                            $global:MgaBasic = $null
+                            Receive-MgaOauthToken `
+                                -UserCredentials $UserCredentials `
+                                -Tenant $Tenant `
+                                -ApplicationID $ApplicationID
                         }
                         else {
                             $global:MgaheaderParameters = @{
@@ -1249,6 +1327,148 @@ function Receive-MgaOauthToken {
                     }
                 }
             }
+            elseif ($ManagedIdentity) {
+                if (!($global:MgaManagedIdentity)) {
+                    $Resource = "https://graph.microsoft.com/"
+                    $Body = @{
+                        resource = $($Resource)
+                    }
+                    if (($ManagedIdentity -eq 'AzFunction') -or ($ManagedIdentity -eq 'Function') -or ($ManagedIdentity -eq 'AppService') -or ($ManagedIdentity -eq 'AzAutomation') -or ($ManagedIdentity -eq 'Automation') -or ($ManagedIdentity -eq 'AA')) {
+                        $tokenAuthURI = $env:IDENTITY_ENDPOINT + "?resource=$resource&api-version=2019-08-01"
+                        $global:MgaManagedIdentity = Invoke-RestMethod -Method Get -Headers @{"X-IDENTITY-HEADER" = "$($env:IDENTITY_HEADER)" } -Uri $tokenAuthURI
+                        if ($null -eq $global:MgaManagedIdentity.access_token) {
+                            throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
+                        }
+                        else {
+                            $global:MgaHeaderParameters = @{
+                                Authorization  = "$($global:MgaManagedIdentity.token_type) $($global:MgaManagedIdentity.access_token)"
+                                'Content-Type' = 'application/json'
+                            }
+                            $global:MgaLoginType = 'ManagedIdentity'
+                            $global:MgaManagedIdentityType = $ManagedIdentity
+                        }
+                    }
+                    elseif (($ManagedIdentity -eq 'VirtualMachine') -or ($ManagedIdentity -eq 'VM')) {
+                        $global:MgaManagedIdentity = Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=$Resource" -Headers @{Metadata = "true" }
+                        if ($null -eq $global:MgaManagedIdentity.access_token) {
+                            throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
+                        }
+                        else {
+                            $global:MgaHeaderParameters = @{
+                                Authorization  = "$($global:MgaManagedIdentity.token_type) $($global:MgaManagedIdentity.access_token)"
+                                'Content-Type' = 'application/json'
+                            }
+                            $global:MgaLoginType = 'ManagedIdentity'
+                            $global:MgaManagedIdentityType = $ManagedIdentity
+                        }
+                    } 
+                    <# elseif (($ManagedIdentity -eq 'AzAutomation') -or ($ManagedIdentity -eq 'Automation') -or ($ManagedIdentity -eq 'AA')) {
+                        $GetTokenHeader = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+                        $GetTokenHeader.add('X-IDENTITY-HEADER', $env:IDENTITY_HEADER)
+                        $GetTokenHeader.Add('Metadata', 'True')
+
+                        $global:MgaManagedIdentity = Invoke-RestMethod -Method Post -Uri $loginURI -Headers $GetTokenHeader -Body $Body -ContentType 'application/x-www-form-urlencoded'
+                        if ($null -eq $global:MgaManagedIdentity.access_token) {
+                            throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
+                        }
+                        else {
+                            $global:MgaHeaderParameters = @{
+                                Authorization  = "$($global:MgaManagedIdentity.token_type) $($global:MgaManagedIdentity.access_token)"
+                                'Content-Type' = 'application/json'
+                            }
+                            $global:MgaLoginType = 'ManagedIdentity'
+                            $global:MgaManagedIdentityType = 'AA'
+                        }
+                    } #>
+                    elseif ($ManagedIdentity -eq 'TryMe') {
+                        try {
+                            Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Trying Virtual Machine Managed Identity"
+                            Receive-MgaOauthToken -ManagedIdentity 'VM'
+                        }
+                        catch {
+                            Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Virtual Machine Managed Identity: FAILED"
+                            try {
+                                Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Trying Azure Automation Managed Identity"
+                                Receive-MgaOauthToken -ManagedIdentity 'AA'
+                            }
+                            catch {
+                                Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Azure Automation Managed Identity: FAILED"
+                                <# try {
+                                    Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Trying Azure App Service Identity"
+                                    Connect-Mga -ManagedIdentity 'Function'
+                                }
+                                catch { #>
+                                Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Azure App Service Managed Identity: FAILED"
+                                throw "Cannot find the Managed Identity type... Exiting cmdlet"
+                                # }
+                            }
+                        }
+                    }
+                }
+                else {
+                    if (($ManagedIdentity -eq 'AzFunction') -or ($ManagedIdentity -eq 'Function') -or ($ManagedIdentity -eq 'AppService') -or ($ManagedIdentity -eq 'AzAutomation') -or ($ManagedIdentity -eq 'Automation') -or ($ManagedIdentity -eq 'AA')) {
+                        Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Oauth token already exists from previously running cmdlets."
+                        Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Running test to see if Oauth token expired."
+                        $OauthExpiryTime = $UnixDateTime.AddSeconds($global:MgaManagedIdentity.expires_on)
+                        if ($OauthExpiryTime -le $UTCDate) {
+                            $global:MgaManagedIdentity = $null
+                            Receive-MgaOauthToken `
+                                -ManagedIdentity $ManagedIdentity
+                        }
+                        else {
+                            Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Oauth token from last run is still active."
+                        }
+                    } 
+                    elseif (($ManagedIdentity -eq 'VirtualMachine') -or ($ManagedIdentity -eq 'VM')) {
+                        Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Oauth token already exists from previously running cmdlets."
+                        Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Running test to see if Oauth token expired."
+                        $OauthExpiryTime = $UnixDateTime.AddSeconds($global:MgaManagedIdentity.expires_on)
+                        if ($OauthExpiryTime -le $UTCDate) {
+                            $global:MgaManagedIdentity = $null
+                            Receive-MgaOauthToken `
+                                -ManagedIdentity $ManagedIdentity
+                        }
+                        else {
+                            Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Oauth token from last run is still active."
+                        }
+                    }
+                    <# elseif (($ManagedIdentity -eq 'AzAutomation') -or ($ManagedIdentity -eq 'Automation') -or ($ManagedIdentity -eq 'AA')) {
+                        Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Oauth token already exists from previously running cmdlets."
+                        Write-Verbose "Receive-MgaOauthToken: ManagedIdentity: Running test to see if Oauth token expired."
+                        $OauthExpiryTime = $UnixDateTime.AddSeconds($global:MgaManagedIdentity.expires_on)
+                        if ($null -ne $global:MgaManagedIdentity.refresh_token) {
+                            Write-Verbose "Receive-MgaOauthToken: Using the refresh token to get a new Oauth Token."
+                            $Body = @{
+                                refresh_token = $global:MgaManagedIdentity.refresh_token
+                                grant_type    = 'refresh_token'
+                            }
+                            $global:MgaManagedIdentity = Invoke-RestMethod -Method Post -Uri $loginURI/$Tenant/oauth2/token?api-version=1.0 -Body $Body -UseBasicParsing
+                            if ($null -eq $global:MgaManagedIdentity.access_token) {
+                                Write-Warning 'We did not retrieve an Oauth access token from the refresh_token. Re-trying to log in with new token.'
+                                $global:MgaManagedIdentity = $null
+                                Receive-MgaOauthToken `
+                                    -ManagedIdentity $ManagedIdentity
+                            }
+                            else {
+                                $global:MgaHeaderParameters = @{
+                                    Authorization  = "$($global:MgaManagedIdentity.token_type) $($global:MgaManagedIdentity.access_token)"
+                                    'Content-Type' = 'application/json'
+                                }
+                                $global:MgaLoginType = 'ManagedIdentity'
+                                $global:MgaManagedIdentityType = 'AA'
+                            }
+                        }
+                        if ($OauthExpiryTime -le $UTCDate) {
+                            $global:MgaManagedIdentity = $null
+                            Receive-MgaOauthToken `
+                                -ManagedIdentity $ManagedIdentity
+                        }
+                        else {
+                            Write-Verbose "Receive-MgaOauthToken: Basic UserCredentials: Oauth token from last run is still active."
+                        }
+                    } #>
+                }
+            }          
         }
         catch {
             throw $_.Exception.Message
