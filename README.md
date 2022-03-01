@@ -12,6 +12,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 - [Optimized.Mga.AzureAD](https://github.com/baswijdenes/Optimized.Mga.AzureAD)
 
 ## UPDATES VERSIONS
+* [0.0.2.6.md](./.Versions/0.0.2.6.md)
 * [0.0.2.5.md](./.Versions/0.0.2.5.md)
 * [0.0.2.3.md](./.Versions/0.0.2.3.md)
 * [0.0.2.2.md](./.Versions/0.0.2.2.md)
@@ -135,6 +136,7 @@ By selecting one of these parameters you log on with the following:
 * **Thumbprint**: Will search for a Certificate under thumbprint on local device and log you on with a Certificate.
 * **UserCredentials**: Will log you on with basic authentication.
 * **RedirectUri**: Will log you on with MFA Authentication.
+* * **RedirectUri**: Will log you on with a Managed Identity.
 
 The OauthToken is automatically renewed when you use cmdlets.
 
@@ -152,6 +154,8 @@ Connect-Mga -Thumbprint '3A7328F1059E9802FAXXXXXXXXXXXXXX' -ApplicationID 'XXXXX
 Connect-Mga -UserCredentials $Cred -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
 
 Connect-Mga -redirectUri 'msalXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX://auth' -Tenant 'XXXXXXXX.onmicrosoft.com'  -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
+
+Connect-Mga -ManagedIdentity
 ````
 ---
 ## Disconnect-Mga
