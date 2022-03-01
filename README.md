@@ -7,6 +7,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 * [My blog](https://bwit.blog/)
 
 ## Submodules dependent on Optimized.Mga:
+- [Optimized.Mga.Report](https://github.com/baswijdenes/Optimized.Mga.Report)
 - [Optimized.Mga.SharePoint](https://github.com/baswijdenes/Optimized.Mga.SharePoint)
 - [Optimized.Mga.Mail](https://github.com/baswijdenes/Optimized.Mga.Mail)
 - [Optimized.Mga.AzureAD](https://github.com/baswijdenes/Optimized.Mga.AzureAD)
