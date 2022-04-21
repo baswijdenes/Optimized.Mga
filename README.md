@@ -4,7 +4,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 
 * [PowerShell Gallery](https://www.powershellgallery.com/packages/Optimized.Mga)
 * [Submit an issue](https://github.com/baswijdenes/Optimized.Mga/issues)
-* [My blog](https://bwit.blog/)
+* [My blog](https://baswijdenes.com/)
 
 ## Submodules dependent on Optimized.Mga:
 - [Optimized.Mga.Report](https://github.com/baswijdenes/Optimized.Mga.Report)
@@ -13,6 +13,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 - [Optimized.Mga.AzureAD](https://github.com/baswijdenes/Optimized.Mga.AzureAD)
 
 ## UPDATES VERSIONS
+* [0.0.2.7.md](./.Versions/0.0.2.7.md)
 * [0.0.2.6.md](./.Versions/0.0.2.6.md)
 * [0.0.2.5.md](./.Versions/0.0.2.5.md)
 * [0.0.2.3.md](./.Versions/0.0.2.3.md)
@@ -33,7 +34,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 ### Speed
 The main difference is **speed**.
 
-Batch-Mga doesn't lie.
+`Batch-Mga` doesn't lie.
 When I use Measure-Command while creating 10,000 users via the Post command it takes about 41 minutes:
 
 ```PowerShell
@@ -54,7 +55,7 @@ Minutes           : 41
 Seconds           : 6
 Milliseconds      : 717
 ```
-When I create the same users via Batch-Mga, it's 10 minutes:
+When I create the same users via `Batch-Mga`, it's 10 minutes:
 ```PowerShell
 $Batch = [System.Collections.Generic.List[Object]]::new()
 foreach ($User in $CreatedUsers) {
@@ -74,14 +75,14 @@ Seconds           : 43
 Milliseconds      : 152
 ```
 
-Batch-Mga will take care of the limitations (20 requests per batch) and will sleep for the amount of time a throttle limit is returned and then continue.
+`Batch-Mga` will take care of the limitations (20 requests per batch) and will sleep for the amount of time a throttle limit is returned and then continue.
 
 ### Usability
 The second difference is **usability**.
 If you look at the official module you will see 33 dependencies.
 I made my module so that you only need 8 cmdlets.
 
-The main cmdlet is of course Batch-Mga, by using Fiddler, or the browser developer tools you can find the URL when navigating through AzureAD and use it in one of the cmdlets. 
+The main cmdlet is of course `Batch-Mga`, by using Fiddler, or the browser developer tools you can find the URL when navigating through AzureAD and use it in one of the cmdlets. 
 
 For example the below URL is from the Intune Management GUI and found with Fiddler. It will get the Windows compliant devices and will only select the ComplianceState and UserPrincipalname.
 ```powershell
@@ -90,7 +91,7 @@ Get-Mga -URL $URL
 ```
 
 ### Bulk
-Patch-Mga with parameters -InputObject and -Batch and with the Property members@odata.bind will automatically be batched. So, in theory you can add 10000 users to a Group instantly. While throttling is handled for you.
+`Patch-Mga` with parameters `-InputObject` and `-Batch` and with the Property `members@odata.bind` will automatically be batched. So, in theory you can add 10000 users to a Group instantly. While throttling is handled for you.
 ```PowerShell
 $CreatedUsers = Get-Mga -URL 'https://graph.microsoft.com/v1.0/users?$top=999'
 $UserPostList = [System.Collections.Generic.List[Object]]::new() 
@@ -106,7 +107,7 @@ $PostBody = [PSCustomObject] @{
 Patch-Mga -URL 'https://graph.microsoft.com/v1.0/groups/ac252320-4194-402f-8182-2d14e4a2db5c' -InputObject $PostBody -Verbose
 ```
 
-Same goes for Delete-Mga. When parameter -URL is an Array, it will automatically batch your request:
+Same goes for `Delete-Mga`. When parameter `-URL` is an Array, it will automatically batch your request:
 ```PowerShell
 $Groupusers = Get-Mga -URL 'https://graph.microsoft.com/v1.0/groups/ac252320-4194-402f-8182-2d14e4a2db5c/members'
 $UserList = @()
@@ -127,7 +128,8 @@ Delete-Mga -URL $UserList
 * [Patch-Mga](#Patch-Mga)
 * [Delete-Mga](#Delete-Mga)
 * [Batch-Mga](#Batch-Mga)
-
+* [Get-MgaVariable](#Get-MgaVariable)
+* [Update-MgaVariable](#Update-MgaVariable)
 
 ---
 ## Connect-Mga
@@ -137,11 +139,13 @@ By selecting one of these parameters you log on with the following:
 * **Thumbprint**: Will search for a Certificate under thumbprint on local device and log you on with a Certificate.
 * **UserCredentials**: Will log you on with basic authentication.
 * **RedirectUri**: Will log you on with MFA Authentication.
-* * **RedirectUri**: Will log you on with a Managed Identity.
+* **Managed Identity**: Will log you on with a Managed Identity.
+* **DeviceCode**: Will log you on with a DeviceCode   
+  **Try DeviceCodePreview if you want your code to be refreshed! Unfortunately MSAL does not support the RefreshToken yet because we use a different SPN**
 
-The OauthToken is automatically renewed when you use cmdlets.
+The OauthToken is automatically renewed when you use cmdlets (Except for `-DeviceCode` & `-RedirectUri`).
 
-If you want to know more about how to log in via MFA with a RedirectUri, follow this **[link](https://bwit.blog/how-to-start-with-microsoft-graph-in-powershell/#I_will_use_credentials)**.
+If you want to know more about how to log in via MFA with a `-RedirectUri`, follow this **[link](https://bwit.blog/how-to-start-with-microsoft-graph-in-powershell/#I_will_use_credentials)**.
 
 ### Examples 
 ````PowerShell
@@ -157,10 +161,14 @@ Connect-Mga -UserCredentials $Cred -Tenant 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX' -A
 Connect-Mga -redirectUri 'msalXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX://auth' -Tenant 'XXXXXXXX.onmicrosoft.com'  -ApplicationID 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX'
 
 Connect-Mga -ManagedIdentity
+
+Connect-Mga -DeviceCode
+
+Connect-Mga -DeviceCodePreview -Tenant 'XXXXXXXX.onmicrosoft.com'
 ````
 ---
 ## Disconnect-Mga
-To update the OauthToken I fill the global scope with a number of properties. The properties are emptied by Disconnect-Mga.
+To update the AccessToken I update the script scope with property `$script:MgaSession`. The properties are emptied by `Disconnect-Mga`.
 
 ### Examples 
 ````PowerShell
@@ -168,7 +176,7 @@ Disconnect-Mga
 ````
 ---
 ## Show-MgaAccessToken
-With `Show-MgaAccessToken` you can request a decoded Token and see what is in their (normally you would paste it into (jwt.ms)[jwt.ms]).  
+With `Show-MgaAccessToken` you can request a decoded Token and see what is in their (normally you would paste it into [jwt.ms](https://jwt.ms)).  
 With the `-Roles` switch you can also only ask the roles you have assigned to the application registration.  
 
 ```PowerShell
@@ -178,14 +186,14 @@ Show-MgaAccessToken -Roles
 ```
 ---
 ## Get-Mga
-Get-Mga speaks for itself. All you have to provide is the URL.
+`Get-Mga` speaks for itself. All you have to provide is the URL.
 
 You can grab the URL via the browser developer tools, Fiddler, or from the [Microsoft Graph docs](https://docs.microsoft.com/en-us/graph/overview).
 You can use all query parameters in the URL like some in the examples.
 
 It will automatically use the Next Link when there is one in the returned request. 
 
-If you only want to retrieve data once, you can use the -Once parameter.
+If you only want to retrieve data once, you can use the `-Once` parameter.
 For example, I used this in the beta version to get the latest login. Nowadays this property is a property under the user: signInActivity.
 
 ### Examples 
@@ -202,10 +210,10 @@ Get-Mga URL $URL
 ````
 ---
 ## Post-Mga
-Post-Mga can be seen as the 'new' Verb.
+`Post-Mga` can be seen as the 'new' Verb.
 With this cmdlet you create objects in AzureAD.
 
--InputObject will accept a PSObject or JSON. 
+`-InputObject` will accept a PSObject or JSON. 
 
 The example below creates a new user. 
 
@@ -225,13 +233,13 @@ Post-Mga -URL 'https://graph.microsoft.com/v1.0/users' -InputObject $InputObject
 ````
 ---
 ## Patch-Mga
-Patch-Mga can be seen as the 'Update' Verb.
+`Patch-Mga` can be seen as the 'Update' Verb.
 
--InputObject will accept a PSObject or JSON. 
+`-InputObject` will accept a PSObject or JSON. 
 
-InputObject with members@odata.bind property over 20+ users will automatically be handled for you.
+`-InputObject` with members@odata.bind property over 20+ users will automatically be handled for you.
 
--Batch is a switch to use Batch in the backend. -Batch only works with 'members@odata.bind' property.
+`-Batch` is a switch to use Batch in the backend. `-Batch` only works with 'members@odata.bind' property.
 
 In the below example I add users to a Group.
 
@@ -254,9 +262,9 @@ Patch-Mga -URL 'https://graph.microsoft.com/v1.0/groups/4c9d31a2-c662-4f76-b3f8-
 Delete speaks for itself. 
 With this cmdlet you can remove objects from AzureAD. 
 
--URL accepts an array of URLS, it will use Batch-Mga in the backend.
+`-URL` accepts an array of URLS, it will use `Batch-Mga` in the backend.
 
--InputObject will accept a PSObject or JSON. 
+`-InputObject` will accept a PSObject or JSON. 
 
 ### Examples 
 ```PowerShell
@@ -273,11 +281,11 @@ Delete-Mga -URL $UserList
 ```
 ---
 ## Batch-Mga
-Batch-Mga is for speed and bulk.
+`Batch-Mga` is for speed and bulk.
 
 Go to [Speed](#Speed) or [Bulk](#Bulk) for more. 
 
-Batch-Mga will take care of the limitations(20 requests per batch) and will sleep for the amount of time a throttle limit is returned and then continue.
+`Batch-Mga` will take care of the limitations(20 requests per batch) and will sleep for the amount of time a throttle limit is returned and then continue.
 
 ### Examples 
 **Bulk delete users:**
@@ -353,4 +361,26 @@ id status code body
 18    201
 19    201
 2     201
+```
+---
+## Get-MgaVariable
+Since the global scope dissapeared you're unable to see the variables in the script scope.  
+I've created the `Get-MgaVariable` for you to see the AccessToken, etc.
+
+### Examples
+```PowerShell
+Get-MgaVariable
+
+Get-MgaVariable -Variable 'HeaderParameters'
+```
+---
+## Update-MgaVariable
+This cmdlet will be mostly used for testing purposes (by me probably).  
+With `Update-MgaVariable` you can update Variables to test several settings.
+
+Keep in mind that some values are ReadOnly and not because of the Scope but because of the way MSAL returns them. 
+
+### Examples
+```PowerShell
+Update-MgaVariable -Variable 'HeaderParameters.Content-Type' -InputObject 'application/xml'
 ```
