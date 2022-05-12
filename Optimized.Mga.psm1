@@ -16,8 +16,7 @@ function Connect-Mga {
     RedirectUri: Will log you on with MFA Authentication.
     ManagedIdentity: Will log you on with a Managed Identity.
     DeviceCode: Will log you on with a DeviceCode.
-    DeviceCodePreview: Try this one when you do not receive a RefreshToken.
-    The OauthToken is automatically renewed when you use cmdlets (Except for DeviceCode when the RefreshToken is missing).
+    The OauthToken is automatically renewed when you use cmdlets.
     
     .PARAMETER Certificate
     Use a Cert to log on. you can use where X's is the certificate thumbprint:
@@ -48,9 +47,6 @@ function Connect-Mga {
 
     .PARAMETER DeviceCode
     This parameter is a switch and it Will let you log in with a DeviceCode.
-
-    .PARAMETER DeviceCodePreview
-    This parameter is a switch and it Will let you log in with a DeviceCode. Only use the DEV switch for when you need a RefreshToken.
     
     .PARAMETER Tenant
     Tenant is the TenantID or onmicrosoft.com address. Don't confuse this with ApplicationID.
@@ -107,13 +103,8 @@ function Connect-Mga {
         [Alias('Identity', 'ManagedSPN')]
         [switch]
         $ManagedIdentity,
-        [Parameter(Mandatory = $true, ParameterSetName = 'DeviceCodePreview')]
-        [Alias('DeviceLoginDEV')]
-        [switch]
-        $DeviceCodePreview,
         [Parameter(Mandatory = $true, ParameterSetName = 'DeviceCode')]
         [switch]
-        [Alias('DeviceLogin')]
         $DeviceCode,
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
@@ -121,7 +112,6 @@ function Connect-Mga {
         [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
         [Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
         [Parameter(Mandatory = $false, ParameterSetName = 'DeviceCode')]
-        [Parameter(Mandatory = $false, ParameterSetName = 'DeviceCodePreview')]
         [Alias('ClientID', 'AppID', 'App', 'Application')]
         [String]
         $ApplicationID,
@@ -129,9 +119,8 @@ function Connect-Mga {
         [Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
         [Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
         [Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'DeviceCodePreview')]
+        # [Parameter(Mandatory = $true, ParameterSetName = 'DeviceCode')]
         [Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
-        [Parameter(Mandatory = $false, ParameterSetName = 'DeviceCode')]
         [Alias('TenantID')]
         [String]
         $Tenant,
@@ -173,7 +162,6 @@ function Connect-Mga {
             ManagedIdentity     = $null
             ManagedIdentityType = $null
             DeviceCode          = $null
-            DeviceCodePreview   = $null
             TPCertificate       = $null
             LoginScope          = $null
             OriginalHeader      = $null
@@ -227,12 +215,7 @@ function Connect-Mga {
             elseif ($DeviceCode -eq $true) {
                 Write-Verbose 'Connect-Mga: process: DeviceCode: Logging in with DeviceCode'
                 $ReceiveMgaOauthToken.Add('DeviceCode', $true)
-                Receive-MgaOauthToken @ReceiveMgaOauthToken
-            }
-            elseif ($DeviceCodePreview -eq $true) {
-                Write-Verbose 'Connect-Mga: process: DeviceCode: Logging in with DeviceCode'
-                $ReceiveMgaOauthToken.Add('DeviceCodePreview', $true)
-                $ReceiveMgaOauthToken.Add('Tenant', $Tenant)
+                # $ReceiveMgaOauthToken.Add('Tenant', $Tenant)
                 Receive-MgaOauthToken @ReceiveMgaOauthToken
             }
         }
@@ -556,40 +539,39 @@ function Get-MgaPreview {
         try {
             Write-Verbose "Get-MgaPreview: Getting results from $URL"
             $Result = Invoke-RestMethod -UseBasicParsing -Headers $Script:MgaSession.HeaderParameters -Uri $URL -Method get
-                if ($Result.'@odata.nextLink') {
-                    if (!($Once)) {
-                        Write-Verbose 'Get-MgaPreview: There is an @odata.nextLink for more output | Restarting Get-MgaPreview again with the next data link'
-                        $EndResult = @()
+            if ($Result.'@odata.nextLink') {
+                if (!($Once)) {
+                    Write-Verbose 'Get-MgaPreview: There is an @odata.nextLink for more output | Restarting Get-MgaPreview again with the next data link'
+                    $EndResult = @()
+                    foreach ($Line in ($Result).value) {
+                        $EndResult += $Line
+                    }
+                    While ($Result.'@odata.nextLink') {
+                        Write-Verbose 'Get-MgaPreview: There is another @odata.nextLink for more output | Restarting Get-MgaPreview again with the next data link'
+                        Update-MgaOauthToken
+                        $Result = Invoke-RestMethod -UseBasicParsing -Headers $Script:MgaSession.HeaderParameters -Uri $Result.'@odata.nextLink' -Method Get
                         foreach ($Line in ($Result).value) {
                             $EndResult += $Line
                         }
-                        While ($Result.'@odata.nextLink') {
-                            Write-Verbose 'Get-MgaPreview: There is another @odata.nextLink for more output | Restarting Get-MgaPreview again with the next data link'
-                            Update-MgaOauthToken
-                            $Result = Invoke-RestMethod -UseBasicParsing -Headers $Script:MgaSession.HeaderParameters -Uri $Result.'@odata.nextLink' -Method Get
-                            foreach ($Line in ($Result).value) {
-                                $EndResult += $Line
-                            }
-                            Write-Verbose "Get-MgaPreview: Count is: $($EndResult.count)"
-                        }
+                        Write-Verbose "Get-MgaPreview: Count is: $($EndResult.count)"
                     }
-                    else {
-                        $EndResult = @()
-                        foreach ($Line in ($Result).value) {
-                            $EndResult += $Line
-                        }
-                        Write-Verbose 'Get-MgaPreview: Parameter -Once found. Even if there is an @odata.nextLink for more output, we will not extract more data'
-                    }
-                }
-                elseif ($Result.value) {
-                    Write-Verbose 'Get-MgaPreview: There is no @odata.nextLink. We will add the data to end result'
-                    $EndResult = $Result.value
                 }
                 else {
-                    Write-Verbose 'Get-MgaPreview: There is no @odata.nextLink. We will add the data to end result'
-                    $EndResult = $Result
+                    $EndResult = @()
+                    foreach ($Line in ($Result).value) {
+                        $EndResult += $Line
+                    }
+                    Write-Verbose 'Get-MgaPreview: Parameter -Once found. Even if there is an @odata.nextLink for more output, we will not extract more data'
                 }
-
+            }
+            elseif ($Result.value) {
+                Write-Verbose 'Get-MgaPreview: There is no @odata.nextLink. We will add the data to end result'
+                $EndResult = $Result.value
+            }
+            else {
+                Write-Verbose 'Get-MgaPreview: There is no @odata.nextLink. We will add the data to end result'
+                $EndResult = $Result
+            }
         }
         catch [System.Net.WebException] {
             $WebResponse = $_.Exception.Response
@@ -1339,11 +1321,6 @@ function Update-MgaOauthToken {
         Receive-MgaOauthToken `
             -DeviceCode
     }
-    elseif ($null -ne $Script:MgaSession.DeviceCodePreview) {
-        Receive-MgaOauthToken `
-            -DeviceCodePreview `
-            -Tenant $Script:MgaSession.Tenant
-    }
     else {
         Throw 'You need to run Connect-Mga before you can continue. Exiting script...'
     }
@@ -1365,19 +1342,17 @@ function Receive-MgaOauthToken {
         #[Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
         #[Parameter(Mandatory = $true, ParameterSetName = 'RedirectUri')]
         #[Parameter(Mandatory = $true, ParameterSetName = 'Credentials')]
-        #[Parameter(Mandatory = $true, ParameterSetName = 'DeviceCodePreview')]
+        #[Parameter(Mandatory = $true, ParameterSetName = 'DeviceCode')]
         #[Parameter(Mandatory = $false, ParameterSetName = 'ManagedIdentity')]
         [string]
         $Tenant,
         #[Parameter(Mandatory = $true, ParameterSetName = 'Thumbprint')]
         [string]
         $Thumbprint, 
+
         #[Parameter(Mandatory = $true, ParameterSetName = 'DeviceCode')]
         [switch]
         $DeviceCode,
-        #[Parameter(Mandatory = $true, ParameterSetName = 'DeviceCodePreview')]
-        [switch]
-        $DeviceCodePreview,
         #[Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
         $Certificate, 
         #[Parameter(Mandatory = $true, ParameterSetName = 'ClientSecret')]
@@ -1577,7 +1552,7 @@ function Receive-MgaOauthToken {
                             -ApplicationID $ApplicationID `
                             -Tenant $Tenant `
                             -RedirectUri $RedirectUri # `
-                            # -LoginScope $LoginScope
+                        # -LoginScope $LoginScope
                     }
                     else {
                         Write-Verbose 'Receive-MgaOauthToken: MFA UserCredentials: Oauth token from last run is still active.'
@@ -1697,7 +1672,7 @@ function Receive-MgaOauthToken {
                             }
                             catch {
                                 Write-Verbose 'Receive-MgaOauthToken: ManagedIdentity: Azure App Service Managed Identity: FAILED'
-                                throw 'Cannot find the Managed Identity type... Exiting cmdlet'
+                                throw 'Cannot find the Managed Identity type... Login is aborted...'
                             }
                         }
                     }
@@ -1731,9 +1706,9 @@ function Receive-MgaOauthToken {
                     }
                 }
             }
-            elseif ($DeviceCode) {
-                if (!($Script:MgaSession.DeviceCode)) {
-                    if (!($Script:MgaSession.LoginType -eq 'DeviceCode')) {
+            <# elseif ($DeviceCodeOLD) {
+                if (!($Script:MgaSession.DeviceCodeOLD)) {
+                    if (!($Script:MgaSession.LoginType -eq 'DeviceCodeOLD')) {
                         Add-Type -Path "$PSScriptRoot\Microsoft.Identity.Client.dll"
                         $Code = @'
 using System;
@@ -1780,14 +1755,92 @@ return tokenResponse;
                     $clientId = '1b730954-1685-4b74-9bfd-dac224a7b894'
                     $App = [Microsoft.Identity.Client.PublicClientApplicationBuilder]::Create($clientId).Build()
                     $Builder = [CallbackBridge]::new()
-                    $Script:MgaSession.DeviceCode = $Builder.StartDeviceCodeFlow($LoginScope, $App)
+                    $Script:MgaSession.DeviceCodeOLD = $Builder.StartDeviceCodeFlow($LoginScope, $App)
 
-                    if ($null -eq $Script:MgaSession.DeviceCode.result.AccessToken) {
+                    if ($null -eq $Script:MgaSession.DeviceCodeOLD.result.AccessToken) {
                         throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
                     }
                     else {
                         $Script:MgaSession.headerParameters = @{
-                            Authorization  = $Script:MgaSession.DeviceCode.Result.CreateAuthorizationHeader()
+                            Authorization  = $Script:MgaSession.DeviceCodeOLD.Result.CreateAuthorizationHeader()
+                            'Content-Type' = 'application/json'
+                        }
+                        $Script:MgaSession.LoginType = 'DeviceCodeOLD'
+                    }
+                }
+                else {
+                    Write-Verbose 'Receive-MgaOauthToken: DeviceCodeOLD: Oauth token already exists from previously running cmdlets.'
+                    Write-Verbose 'Receive-MgaOauthToken: DeviceCodeOLD: Running test to see if Oauth token expired.'
+                    $OauthExpiryTime = $Script:MgaSession.DeviceCodeOLD.Result.ExpiresOn.UtcDateTime
+                    if ($OauthExpiryTime -le $UTCDate) {
+                        Write-Verbose 'Receive-MgaOauthToken: DeviceCodeOLD: Oauth token expired. Emptying Oauth variable and re-running function.'
+                        $Script:MgaSession.DeviceCodeOLD = $null
+                        Receive-MgaOauthToken `
+                            -DeviceCode
+                    }
+                    else {
+                        Write-Verbose 'Receive-MgaOauthToken: DeviceCodeOLD: Oauth token from last run is still active.'
+                    }
+                }
+            }
+            #>   
+            elseif ($DeviceCode) {
+                if (!($Script:MgaSession.DeviceCode)) {
+                    $clientId = '1b730954-1685-4b74-9bfd-dac224a7b894'
+                    $Resource = 'https://graph.microsoft.com/'
+                    $DeviceCodeRequestParams = @{
+                        Method = 'POST'
+                        Uri    = 'https://login.microsoftonline.com/common/oauth2/devicecode'
+                        Body   = @{
+                            client_id = $ClientId
+                            resource  = $Resource
+                        }
+                    }           
+                    $DeviceCodeRequest = Invoke-RestMethod @DeviceCodeRequestParams
+                    Write-Host $DeviceCodeRequest.message
+                    $LoggedInTryCount = 0
+                    while ($null -eq $Script:MgaSession.DeviceCode) {
+                        try {
+                            $TokenRequestParams = @{
+                                Method = 'POST'
+                                Uri    = 'https://login.microsoftonline.com/organizations/oauth2/token'
+                                Body   = @{
+                                    grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
+                                    code       = $DeviceCodeRequest.device_code
+                                    client_id  = $ClientId
+                                }
+                            }
+                            $Script:MgaSession.DeviceCode = Invoke-RestMethod @TokenRequestParams
+                        } 
+                        catch {
+                            if ($LoggedInTryCount -ne 870) {
+                                Write-Verbose 'Receive-MgaOauthToken: DeviceCode: User has not authorized the DeviceCode yet'
+                                Write-Verbose "Start sleeping for 1 second of the $LoggedInTryCount retries with a maximum of 60"
+                                Start-Sleep -Seconds 5
+                                $LoggedInTryCount = $LoggedInTryCount + 5
+                            }
+                            else {
+                                Throw 'The user has not verified the DeviceCode within 15 minutes. Login is aborted...'
+                            }
+                        }
+                    } 
+                    $TokenRequestParams = @{
+                        Method = 'POST'
+                        Uri    = 'https://login.microsoftonline.com/organizations/oauth2/token'
+                        Body   = @{
+                            grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
+                            code       = $DeviceCodeRequest.device_code
+                            client_id  = $ClientId
+                        }
+                    }
+                    $Script:MgaSession.DeviceCode = Invoke-RestMethod @TokenRequestParams
+                    
+                    if ($null -eq $Script:MgaSession.DeviceCode.access_token) {
+                        throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
+                    }
+                    else {
+                        $Script:MgaSession.headerParameters = @{
+                            Authorization  = "$($Script:MgaSession.DeviceCode.token_type) $($Script:MgaSession.DeviceCode.access_token)"
                             'Content-Type' = 'application/json'
                         }
                         $Script:MgaSession.LoginType = 'DeviceCode'
@@ -1796,114 +1849,35 @@ return tokenResponse;
                 else {
                     Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Oauth token already exists from previously running cmdlets.'
                     Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Running test to see if Oauth token expired.'
-                    $OauthExpiryTime = $Script:MgaSession.DeviceCode.Result.ExpiresOn.UtcDateTime
-                    if ($OauthExpiryTime -le $UTCDate) {
-                        Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Oauth token expired. Emptying Oauth variable and re-running function.'
-                        $Script:MgaSession.DeviceCode = $null
-                        Receive-MgaOauthToken `
-                            -DeviceCode
-                    }
-                    else {
-                        Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Oauth token from last run is still active.'
-                    }
-                }
-            }   
-            elseif ($DeviceCodePreview) {
-                if (!($Script:MgaSession.DeviceCodePreview)) {
-                    $clientId = '1b730954-1685-4b74-9bfd-dac224a7b894'
-                    $Resource = 'https://graph.microsoft.com'
-                    $DeviceCodeRequestParams = @{
-                        Method = 'POST'
-                        Uri    = "https://login.microsoftonline.com/$Tenant/oauth2/devicecode"
-                        Body   = @{
-                            client_id = $ClientId
-                            resource  = $Resource
-                        }
-                    }           
-                    $DeviceCodeRequest = Invoke-RestMethod @DeviceCodeRequestParams
-                    Write-Host $DeviceCodeRequest.message
-                    $LoggedInTryCount = 1
-                    while ($null -eq $Script:MgaSession.DeviceCodePreview) {
-                        try {
-                            $TokenRequestParams = @{
-                                Method = 'POST'
-                                Uri    = "https://login.microsoftonline.com/$Tenant/oauth2/token"
-                                Body   = @{
-                                    grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
-                                    code       = $DeviceCodeRequest.device_code
-                                    client_id  = $ClientId
-                                }
-                            }
-                            $Script:MgaSession.DeviceCodePreview = Invoke-RestMethod @TokenRequestParams
-                        } 
-                        catch {
-                            if ($LoggedInTryCount -ne 60) {
-                                Write-Verbose 'Receive-MgaOauthToken: DeviceCodePreview: User has not authorized the DeviceCode yet'
-                                Write-Verbose "Start sleeping for 1 second of the $LoggedInTryCount retries with a maximum of 60"
-                                Start-Sleep -Seconds 1
-                                $LoggedInTryCount = $LoggedInTryCount + 1
-                            }
-                            else {
-                                Throw 'The user has not verified the DeviceCode within the minute. Login is aborted...'
-                            }
-                        }
-                    } 
-                    $TokenRequestParams = @{
-                        Method = 'POST'
-                        Uri    = "https://login.microsoftonline.com/$Tenant/oauth2/token"
-                        Body   = @{
-                            grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
-                            code       = $DeviceCodeRequest.device_code
-                            client_id  = $ClientId
-                        }
-                    }
-                    $Script:MgaSession.DeviceCodePreview = Invoke-RestMethod @TokenRequestParams
-                    
-                    if ($null -eq $Script:MgaSession.DeviceCodePreview.access_token) {
-                        throw 'We did not retrieve an Oauth access token to continue script. Exiting script...'
-                    }
-                    else {
-                        $Script:MgaSession.headerParameters = @{
-                            Authorization  = "$($Script:MgaSession.DeviceCodePreview.token_type) $($Script:MgaSession.DeviceCodePreview.access_token)"
-                            'Content-Type' = 'application/json'
-                        }
-                        $Script:MgaSession.LoginType = 'DeviceCodePreview'
-                    }
-                }
-                else {
-                    Write-Verbose 'Receive-MgaOauthToken: DeviceCodePreview: Oauth token already exists from previously running cmdlets.'
-                    Write-Verbose 'Receive-MgaOauthToken: DeviceCodePreview: Running test to see if Oauth token expired.'
-                    $OauthExpiryTime = $UnixDateTime.AddSeconds($Script:MgaSession.DeviceCodePreview.expires_on)
-                    if ($null -ne $Script:MgaSession.DeviceCodePreview.refresh_token) {
+                    $OauthExpiryTime = $UnixDateTime.AddSeconds($Script:MgaSession.DeviceCode.expires_on)
+                    if ($null -ne $Script:MgaSession.DeviceCode.refresh_token) {
                         Write-Verbose 'Receive-MgaOauthToken: '
                         $Body = @{
-                            refresh_token = $Script:MgaSession.DeviceCodePreview.refresh_token
+                            refresh_token = $Script:MgaSession.DeviceCode.refresh_token
                             grant_type    = 'refresh_token'
                         }
-                        $Script:MgaSession.DeviceCodePreview = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token?api-version=1.0" -Body $Body -UseBasicParsing
-                        if ($null -eq $Script:MgaSession.DeviceCodePreview.access_token) {
+                        $Script:MgaSession.DeviceCode = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token?api-version=1.0" -Body $Body -UseBasicParsing
+                        if ($null -eq $Script:MgaSession.DeviceCode.access_token) {
                             Write-Warning 'We did not retrieve an Oauth access token from the refresh_token. Re-trying to log in with new token.'
-                            $Script:MgaSession.DeviceCodePreview = $null
+                            $Script:MgaSession.DeviceCode = $null
                             Receive-MgaOauthToken `
-                                -DeviceCodePreview `
-                                -Tenant $Tenant 
+                                -DeviceCodePreview 
                         }
                         else {
                             $Script:MgaSession.headerParameters = @{
-                                Authorization  = "$($Script:MgaSession.DeviceCodePreview.token_type) $($Script:MgaSession.DeviceCodePreview.access_token)"
+                                Authorization  = "$($Script:MgaSession.DeviceCode.token_type) $($Script:MgaSession.DeviceCode.access_token)"
                                 'Content-Type' = 'application/json'
                             }
-                            $Script:MgaSession.LoginType = 'DeviceCodePreview'
+                            $Script:MgaSession.LoginType = 'DeviceCode'
                         }
                     }
                     elseif ($OauthExpiryTime -le $UTCDate) {
-                        $Script:MgaSession.DeviceCodePreview = $null
+                        $Script:MgaSession.DeviceCode = $null
                         Receive-MgaOauthToken `
-                            -DeviceCodePreview `
-                            -Tenant $Tenant 
+                            -DeviceCodePreview 
                     }
                     else {
-                        Write-Verbose 'Receive-MgaOauthToken: DeviceCodePreview: Oauth token from last run is still active.'
+                        Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Oauth token from last run is still active.'
                     }
                 }
             }         
