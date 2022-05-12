@@ -13,6 +13,7 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 - [Optimized.Mga.AzureAD](https://github.com/baswijdenes/Optimized.Mga.AzureAD)
 
 ## UPDATES VERSIONS
+* [0.0.2.8.md](./.Versions/0.0.2.8.md)
 * [0.0.2.7.md](./.Versions/0.0.2.7.md)
 * [0.0.2.6.md](./.Versions/0.0.2.6.md)
 * [0.0.2.5.md](./.Versions/0.0.2.5.md)
