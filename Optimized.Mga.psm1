@@ -400,7 +400,7 @@ function Get-Mga {
         Write-Verbose 'Get-Mga: begin: Using Update-MgaOauthToken to check if the AccessToken needs to be refreshed'
         Update-MgaOauthToken
         if ($CustomHeader) {
-            Write-Verbose 'Get-Mga: begin: Updating the $script:MgaSessions.HeaderParameters with CustomHeader parameters'
+            Write-Verbose 'Get-Mga: begin: Updating the $script:MgaSession.HeaderParameters with CustomHeader parameters'
             Enable-MgaCustomHeader -CustomHeader $CustomHeader
         }
     }
@@ -531,7 +531,7 @@ function Get-MgaPreview {
         Write-Verbose 'Get-MgaPreview: begin: Using Update-MgaOauthToken to check if the AccessToken needs to be refreshed'
         Update-MgaOauthToken
         if ($CustomHeader) {
-            Write-Verbose 'Get-MgaPreview: begin: Updating the $script:MgaSessions.HeaderParameters with CustomHeader parameters'
+            Write-Verbose 'Get-MgaPreview: begin: Updating the $script:MgaSession.HeaderParameters with CustomHeader parameters'
             Enable-MgaCustomHeader -CustomHeader $CustomHeader
         }
     }
@@ -1588,8 +1588,14 @@ function Receive-MgaOauthToken {
                     Write-Verbose 'Receive-MgaOauthToken: Basic UserCredentials: Oauth token already exists from previously running cmdlets.'
                     Write-Verbose 'Receive-MgaOauthToken: Basic UserCredentials: Running test to see if Oauth token expired.'
                     $OauthExpiryTime = $UnixDateTime.AddSeconds($Script:MgaSession.Basic.expires_on)
-                    if ($null -ne $Script:MgaSession.Basic.refresh_token) {
-                        Write-Verbose 'Receive-MgaOauthToken: '
+                    if (($OauthExpiryTime -le $UTCDate) -and ($null -eq $Script:MgaSession.DeviceCode.Refresh_token)) {
+                        $Script:MgaSession.Basic = $null
+                        Receive-MgaOauthToken `
+                            -UserCredentials $UserCredentials `
+                            -Tenant $Tenant `
+                            -ApplicationID $ApplicationID
+                    }
+                    elseif (($OauthExpiryTime -le $UTCDate) -and ($null -ne $Script:MgaSession.Basic.refresh_token)) {
                         $Body = @{
                             refresh_token = $Script:MgaSession.Basic.refresh_token
                             grant_type    = 'refresh_token'
@@ -1611,13 +1617,6 @@ function Receive-MgaOauthToken {
                             $Script:MgaSession.LoginType = 'UserCredentials'
                             $Script:MgaSession.UserCredentials = $UserCredentials
                         }
-                    }
-                    if ($OauthExpiryTime -le $UTCDate) {
-                        $Script:MgaSession.Basic = $null
-                        Receive-MgaOauthToken `
-                            -UserCredentials $UserCredentials `
-                            -Tenant $Tenant `
-                            -ApplicationID $ApplicationID
                     }
                     else {
                         Write-Verbose 'Receive-MgaOauthToken: Basic UserCredentials: Oauth token from last run is still active.'
@@ -1850,18 +1849,22 @@ return tokenResponse;
                     Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Oauth token already exists from previously running cmdlets.'
                     Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Running test to see if Oauth token expired.'
                     $OauthExpiryTime = $UnixDateTime.AddSeconds($Script:MgaSession.DeviceCode.expires_on)
-                    if ($null -ne $Script:MgaSession.DeviceCode.refresh_token) {
-                        Write-Verbose 'Receive-MgaOauthToken: '
+                    if (($OauthExpiryTime -le $UTCDate) -and ($null -eq $Script:MgaSession.DeviceCode.Refresh_token)) {
+                        $Script:MgaSession.DeviceCode = $null
+                        Receive-MgaOauthToken `
+                            -DeviceCode 
+                    }
+                    elseif (($OauthExpiryTime -le $UTCDate) -and ($null -ne $Script:MgaSession.DeviceCode.refresh_token)) {
                         $Body = @{
                             refresh_token = $Script:MgaSession.DeviceCode.refresh_token
                             grant_type    = 'refresh_token'
                         }
-                        $Script:MgaSession.DeviceCode = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token?api-version=1.0" -Body $Body -UseBasicParsing
+                        $Script:MgaSession.DeviceCode = Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$Tenant/oauth2/token?api-version=1.0" -Body $Body -UseBasicParsing -ErrorAction SilentlyContinue
                         if ($null -eq $Script:MgaSession.DeviceCode.access_token) {
                             Write-Warning 'We did not retrieve an Oauth access token from the refresh_token. Re-trying to log in with new token.'
                             $Script:MgaSession.DeviceCode = $null
                             Receive-MgaOauthToken `
-                                -DeviceCodePreview 
+                                -DeviceCode
                         }
                         else {
                             $Script:MgaSession.headerParameters = @{
@@ -1870,11 +1873,6 @@ return tokenResponse;
                             }
                             $Script:MgaSession.LoginType = 'DeviceCode'
                         }
-                    }
-                    elseif ($OauthExpiryTime -le $UTCDate) {
-                        $Script:MgaSession.DeviceCode = $null
-                        Receive-MgaOauthToken `
-                            -DeviceCodePreview 
                     }
                     else {
                         Write-Verbose 'Receive-MgaOauthToken: DeviceCode: Oauth token from last run is still active.'
