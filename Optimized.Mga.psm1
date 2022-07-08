@@ -1106,6 +1106,7 @@ function Batch-Mga {
                         status = $Result.status
                         code   = $Result.body.error.code
                         body   = $Result.body.error.message
+                        Result = $Result.body
                     }
                     $EndResult.Add($Object)
                     if ($Object.body -like '*Your request is throttled temporarily.*') {
@@ -1132,6 +1133,7 @@ function Batch-Mga {
                             status = $Result.status
                             code   = $Result.body.error.code
                             body   = $Result.body.error.message
+                            Result = $Result.body
                         }
                         $EndResult.Add($Object)
                     }
