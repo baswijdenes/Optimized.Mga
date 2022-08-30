@@ -1,5 +1,4 @@
 # Optimized.Mga
-
 Don't you wish you have a Microsoft Graph module which handles batching, the token and throttling for you, but where you can just enter your own URL so you aren't restricted to the limitations of the official Microsoft Module and even includes a way to speed up the process?
 
 * [PowerShell Gallery](https://www.powershellgallery.com/packages/Optimized.Mga)
@@ -13,7 +12,8 @@ Don't you wish you have a Microsoft Graph module which handles batching, the tok
 - [Optimized.Mga.AzureAD](https://github.com/baswijdenes/Optimized.Mga.AzureAD)
 
 ## UPDATES VERSIONS
-* [3.0.0.md](./.Versions/3.0.1.md)
+* [3.0.2.md](./.Versions/3.0.2.md)
+* [3.0.1.md](./.Versions/3.0.1.md)
 * [3.0.0.md](./.Versions/3.0.0.md)
 * [0.0.2.8.md](./.Versions/0.0.2.8.md)
 * [0.0.2.7.md](./.Versions/0.0.2.7.md)

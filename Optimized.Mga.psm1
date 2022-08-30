@@ -251,7 +251,6 @@ function Disconnect-Mga {
     process {
         try {
             Write-Verbose 'Disconnect-Mga: process: Removing MgaSession Variable in Scope script'
-            # This cmdlet can not be run outside the script scope (module scope) thats why I created a wrapper function
             $Null = Get-Variable -Name 'Mga*' -Scope Script | Remove-Variable -Force -Scope Script
         }
         catch {
@@ -397,6 +396,7 @@ function Get-Mga {
         $CustomHeader
     )
     begin {
+        $WebResponse = $null
         Write-Verbose 'Get-Mga: begin: Using Update-MgaOauthToken to check if the AccessToken needs to be refreshed'
         Update-MgaOauthToken
         if ($CustomHeader) {
@@ -453,8 +453,14 @@ function Get-Mga {
         catch [System.Net.WebException] {
             $WebResponse = $_.Exception.Response
             if ($WebResponse.StatusCode -eq 429) {
+                $RetryValue = 0
                 [int]$RetryValue = $WebResponse.Headers['Retry-After']
-                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
                 if ($Result.'@odata.nextLink') {
                     Get-Mga -URL $Result.'@odata.nextLink'
@@ -468,130 +474,27 @@ function Get-Mga {
             }
         }
         catch {
-            throw $_.Exception.Message
-        }
-    }
-    end {
-        if ($CustomHeader) {
-            Disable-MgaCustomHeader
-        }
-        return $EndResult
-    }
-}
-
-function Get-MgaPreview {
-    <#
-    .LINK
-    https://github.com/baswijdenes/Optimized.Mga/tree/main
-
-    .SYNOPSIS
-    Get-Mga speaks for itself. All you have to provide is the URL.
-    
-    .DESCRIPTION
-    You can grab the URL via the browser developer tools, Fiddler, or from the Microsoft Graph docs. You can use all query parameters in the URL like some in the examples.
-    It will automatically use the Next Link when there is one in the returned request.
-    
-    .PARAMETER URL
-    The URL to get data from Microsoft Graph.
-    
-    .PARAMETER Once
-    If you only want to retrieve data once, you can use the -Once parameter.
-    For example, I used this in the beta version to get the latest login. Nowadays this property is a property under the user: signInActivity.
-
-    .PARAMETER CustomHeader
-    Add CustomHeader 
-    
-    .EXAMPLE
-    Get-Mga -URL 'https://graph.microsoft.com/v1.0/users' -Once
-
-    .EXAMPLE
-    Get-Mga -URL 'https://graph.microsoft.com/v1.0/users?$top=999'
-
-    .EXAMPLE
-    $URL = 'https://graph.microsoft.com/v1.0/users?$select={0}' -f 'id,userPrincipalName,lastPasswordChangeDateTime,createdDateTime,PasswordPolicies' 
-    Get-Mga -URL $URL
-
-    .EXAMPLE
-    $URL = 'https://graph.microsoft.com/beta/users?$filter=({0})&$select=displayName,userPrincipalName,createdDateTime,signInActivity' -f "UserType eq 'Guest'"
-    Get-Mga URL $URL
-    #>
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true, Position = 0)]
-        [string]
-        $URL,
-        [Parameter(Mandatory = $false)]      
-        [switch]
-        $Once,
-        [Parameter(Mandatory = $false)]
-        [object]
-        $CustomHeader
-    )
-    begin {
-        Write-Verbose 'Get-MgaPreview: begin: Using Update-MgaOauthToken to check if the AccessToken needs to be refreshed'
-        Update-MgaOauthToken
-        if ($CustomHeader) {
-            Write-Verbose 'Get-MgaPreview: begin: Updating the $script:MgaSession.HeaderParameters with CustomHeader parameters'
-            Enable-MgaCustomHeader -CustomHeader $CustomHeader
-        }
-    }
-    process {
-        try {
-            Write-Verbose "Get-MgaPreview: Getting results from $URL"
-            $Result = Invoke-RestMethod -UseBasicParsing -Headers $Script:MgaSession.HeaderParameters -Uri $URL -Method get
-            if ($Result.'@odata.nextLink') {
-                if (!($Once)) {
-                    Write-Verbose 'Get-MgaPreview: There is an @odata.nextLink for more output | Restarting Get-MgaPreview again with the next data link'
-                    $EndResult = @()
-                    foreach ($Line in ($Result).value) {
-                        $EndResult += $Line
-                    }
-                    While ($Result.'@odata.nextLink') {
-                        Write-Verbose 'Get-MgaPreview: There is another @odata.nextLink for more output | Restarting Get-MgaPreview again with the next data link'
-                        Update-MgaOauthToken
-                        $Result = Invoke-RestMethod -UseBasicParsing -Headers $Script:MgaSession.HeaderParameters -Uri $Result.'@odata.nextLink' -Method Get
-                        foreach ($Line in ($Result).value) {
-                            $EndResult += $Line
-                        }
-                        Write-Verbose "Get-MgaPreview: Count is: $($EndResult.count)"
-                    }
-                }
-                else {
-                    $EndResult = @()
-                    foreach ($Line in ($Result).value) {
-                        $EndResult += $Line
-                    }
-                    Write-Verbose 'Get-MgaPreview: Parameter -Once found. Even if there is an @odata.nextLink for more output, we will not extract more data'
-                }
-            }
-            elseif ($Result.value) {
-                Write-Verbose 'Get-MgaPreview: There is no @odata.nextLink. We will add the data to end result'
-                $EndResult = $Result.value
-            }
-            else {
-                Write-Verbose 'Get-MgaPreview: There is no @odata.nextLink. We will add the data to end result'
-                $EndResult = $Result
-            }
-        }
-        catch [System.Net.WebException] {
             $WebResponse = $_.Exception.Response
-            if ($WebResponse.StatusCode -eq 429) {
-                [int]$RetryValue = $WebResponse.Headers['Retry-After']
-                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+            if ($WebResponse.StatusCode -eq 'TooManyRequests') {
+                $RetryValue = 0
+                [int]$RetryValue = $WebResponse.Headers.retryafter.delta.Seconds
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
                 if ($Result.'@odata.nextLink') {
-                    Get-MgaPreview -URL $Result.'@odata.nextLink'
+                    Get-Mga -URL $Result.'@odata.nextLink'
                 }
                 else {
-                    Get-MgaPreview -URL $URL
+                    Get-Mga -URL $URL
                 }
             }
             else {
                 throw $_.Exception.Message
             }
-        }
-        catch {
-            throw $_.Exception.Message
         }
     }
     end {
@@ -642,6 +545,7 @@ function Post-Mga {
         $CustomHeader
     )
     begin {
+        $WebResponse = $null
         Update-MgaOauthToken
         if ($CustomHeader) {
             Enable-MgaCustomHeader -CustomHeader $CustomHeader
@@ -659,11 +563,16 @@ function Post-Mga {
             }
         }
         catch [System.Net.WebException] {
-            Write-Warning 'WebException Error message! This could be due to throttling limit.'
             $WebResponse = $_.Exception.Response
             if ($WebResponse.StatusCode -eq 429) {
+                $RetryValue = 0
                 [int]$RetryValue = $WebResponse.Headers['Retry-After']
-                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
                 $Result = Post-Mga -URL $URL -InputObject $InputObject
             }
@@ -672,7 +581,22 @@ function Post-Mga {
             }
         }
         catch {
-            throw $_.Exception.Message
+            $WebResponse = $_.Exception.Response
+            if ($WebResponse.StatusCode -eq 'TooManyRequests') {
+                $RetryValue = 0
+                [int]$RetryValue = $WebResponse.Headers.retryafter.delta.Seconds
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
+                Start-Sleep -Seconds $($RetryValue + 1) 
+                $Result = Post-Mga -URL $URL -InputObject $InputObject
+            }
+            else {
+                throw $_.Exception.Message
+            }
         }
     }
     end {
@@ -724,6 +648,7 @@ function Put-Mga {
         $CustomHeader
     )
     begin {
+        $WebResponse = $null
         Update-MgaOauthToken
         if ($Customheader) {
             Enable-MgaCustomHeader -CustomHeader $CustomHeader
@@ -748,11 +673,16 @@ function Put-Mga {
             }
         }
         catch [System.Net.WebException] {
-            Write-Warning 'WebException Error message! This could be due to throttling limit.'
             $WebResponse = $_.Exception.Response
             if ($WebResponse.StatusCode -eq 429) {
+                $RetryValue = 0
                 [int]$RetryValue = $WebResponse.Headers['Retry-After']
-                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
                 $Result = Put-Mga -URL $URL -InputObject $InputObject
             }
@@ -761,7 +691,22 @@ function Put-Mga {
             }
         }
         catch {
-            throw $_.Exception.Message
+            $WebResponse = $_.Exception.Response
+            if ($WebResponse.StatusCode -eq 'TooManyRequests') {
+                $RetryValue = 0
+                [int]$RetryValue = $WebResponse.Headers.retryafter.delta.Seconds
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
+                Start-Sleep -Seconds $($RetryValue + 1) 
+                $Result = Put-Mga -URL $URL -InputObject $InputObject
+            }
+            else {
+                throw $_.Exception.Message
+            }
         }
     }
     end {
@@ -821,6 +766,7 @@ function Patch-Mga {
         $CustomHeader
     )
     begin {
+        $WebResponse = $null
         Update-MgaOauthToken
         if ($CustomHeader) {
             Enable-MgaCustomHeader -CustomHeader $CustomHeader
@@ -847,11 +793,16 @@ function Patch-Mga {
             }
         }
         catch [System.Net.WebException] {
-            Write-Warning 'WebException Error message! This could be due to throttling limit.'
             $WebResponse = $_.Exception.Response
             if ($WebResponse.StatusCode -eq 429) {
+                $RetryValue = 0
                 [int]$RetryValue = $WebResponse.Headers['Retry-After']
-                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
                 $Result = Patch-Mga -URL $URL -InputObject $InputObject
             }
@@ -860,7 +811,22 @@ function Patch-Mga {
             }
         }
         catch {
-            throw $_.Exception.Message
+            $WebResponse = $_.Exception.Response
+            if ($WebResponse.StatusCode -eq 'TooManyRequests') {
+                $RetryValue = 0
+                [int]$RetryValue = $WebResponse.Headers.retryafter.delta.Seconds
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
+                Start-Sleep -Seconds $($RetryValue + 1) 
+                $Result = Patch-Mga -URL $URL -InputObject $InputObject
+            }
+            else {
+                throw $_.Exception.Message
+            }
         }
     }
     end {
@@ -935,11 +901,16 @@ function Delete-Mga {
 
         }
         catch [System.Net.WebException] {
-            Write-Warning 'WebException Error message! This could be due to throttling limit.'
             $WebResponse = $_.Exception.Response
             if ($WebResponse.StatusCode -eq 429) {
+                $RetryValue = 0
                 [int]$RetryValue = $WebResponse.Headers['Retry-After']
-                Write-Warning "WebException Error message! Throttling error. Retry-After header value: $($RetryValue) seconds. Sleeping for $($RetryValue + 1)s"
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
                 Start-Sleep -Seconds $($RetryValue + 1) 
                 if ($InputObject) {
                     $Result = Delete-Mga -URL $URL -InputObject $InputObject
@@ -953,7 +924,22 @@ function Delete-Mga {
             }
         }
         catch {
-            throw $_.Exception.Message
+            $WebResponse = $_.Exception.Response
+            if ($WebResponse.StatusCode -eq 'TooManyRequests') {
+                $RetryValue = 0
+                [int]$RetryValue = $WebResponse.Headers.retryafter.delta.Seconds
+                if ($RetryValue -eq 0) {
+                    $RetryValue = 15  
+                } elseif ([string]::IsNullOrEmpty($RetryValue)){
+                    $RetryValue = 15 
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($RetryValue) seconds | Sleeping for $($RetryValue + 1)s"
+                Start-Sleep -Seconds $($RetryValue + 1) 
+                $Result = Patch-Mga -URL $URL -InputObject $InputObject
+            }
+            else {
+                throw $_.Exception.Message
+            }
         }
     }
     end {
@@ -1113,6 +1099,10 @@ function Batch-Mga {
                         $ThrottleHit = $true
                         break :EndResults
                     }
+                    if ([int]$Object.Status -match 429) {
+                        $ThrottleHit = $true
+                        break :EndResults
+                    }
                 }
                 catch {
                     throw $_.Exception.Message
@@ -1121,10 +1111,18 @@ function Batch-Mga {
             if ($ThrottleHit -eq $true) {
                 $ThrottleHit = $null
                 $ThrottleTime = $object.body -replace '[^0-9]' , ''
-                Write-Warning 'WebException Error message! This could be due to throttling limit.'
-                Write-Warning "WebException Error message! Throttling error. Retry-After value: $($ThrottleTime) seconds. Sleeping for $($ThrottleTime)s."
+                if ($null -eq $ThrottleTime) {
+                    $ThrottleTime = 150
+                }
+                elseif ([string]::IsNullOrEmpty($ThrottleTime)){
+                    $ThrottleTime = 150
+                }
+                Write-Warning "Throttling hit! Retry-After value: $($ThrottleTime) seconds | Sleeping for $($($ThrottleTime) + 1)s"
                 Start-Sleep -Seconds ([int]$ThrottleTime + 1)
-                $Results = Post-Mga -URL $URI -InputObject $EndBatch
+                $Counter = $EndBatch.Requests.Count - $Object.id 
+                $RetryBatch = @{}
+                $RetryBatch.Add('Requests',($endbatch.Requests | Sort-Object Id | Select-Object -Last $Counter)) 
+                $Results = Post-Mga -URL $URI -InputObject $RetryBatch
                 $EndResult = [System.Collections.Generic.List[System.Object]]::new()
                 foreach ($result in $results.Responses) {
                     try {
@@ -1146,7 +1144,7 @@ function Batch-Mga {
         }
     }
     end {
-        Write-Verbose "Delete-Mga: We've successfully batched the data to Microsoft.Graph.API."
+        Write-Verbose "Batch-Mga: We've successfully batched the data to Microsoft.Graph.API."
         return $EndResult | Sort-Object id
     }
 }
