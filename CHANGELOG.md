@@ -1,3 +1,6 @@
+# 3.0.3.1
+- Small bugfixes
+---
 # 3.0.3
 ## New features
 ### Reference Parameter!
@@ -26,11 +29,11 @@ Invoke-Mga is a wrapper around the default Method cmdlets in the Mga module.
 - Documentation changes from versions to changelog
 - cmdlets have their own markdown files in ./docs
 
-### And for the backend
+### Backend
   - Module is split into single function files with a private / public folder.
   - I tried to build micro functions that can be re-used a lot. 
 
-### resolved BUGS! 
+### Resolved bugs 
   - The throttle is now working again as expected! 
 
 ## Changes in cmdlet names! 

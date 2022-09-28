@@ -18,11 +18,11 @@ function Get-MgaIdentityAccessToken {
         $Resource = 'https://graph.microsoft.com/'
         if ($ManagedIdentity -eq 'AA') {
             $tokenAuthURI = $env:IDENTITY_ENDPOINT + "?resource=$resource&api-version=2019-08-01"
-            $Script:MgaSession.ManagedIdentity = Invoke-RestMethod -Method Get -Headers @{'X-IDENTITY-HEADER' = "$($env:IDENTITY_HEADER)" } -Uri $tokenAuthURI
+            $Script:MgaSession.ManagedIdentity = Invoke-RestMethod -Method Get -Headers @{'X-IDENTITY-HEADER' = "$($env:IDENTITY_HEADER)" } -Uri $tokenAuthURI -UseBasicParsing
             Test-MgaIdentityAccessToken
         }
         elseif ($ManagedIdentity -eq 'VM') {
-            $Script:MgaSession.ManagedIdentity = Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=$Resource" -Headers @{Metadata = 'true' }
+            $Script:MgaSession.ManagedIdentity = Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=$Resource" -Headers @{Metadata = 'true' } -UseBasicParsing
             Test-MgaIdentityAccessToken
         } 
         elseif ($ManagedIdentity -eq 'TryMe') {

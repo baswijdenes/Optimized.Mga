@@ -125,9 +125,10 @@ function Set-Mga {
             }
             else {
                 $InvokeWebRequestSplat = @{
-                    Headers = $Script:MgaSession.HeaderParameters
-                    Uri     = $Uri
-                    Method  = 'Patch'
+                    Headers         = $Script:MgaSession.HeaderParameters
+                    Uri             = $Uri
+                    Method          = 'Patch'
+                    UseBasicParsing = $true
                 }
                 $Body = ConvertTo-MgaJson -Body $Body
                 if ($Body) {

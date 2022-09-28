@@ -75,9 +75,10 @@ function Remove-Mga {
                 $ValidateJson = ConvertTo-MgaJson -Body $Body -Validate
             }
             $InvokeWebRequestSplat = @{
-                Headers = $Script:MgaSession.HeaderParameters
-                Method  = 'Delete'
-                Uri     = $Uri
+                Headers         = $Script:MgaSession.HeaderParameters
+                Method          = 'Delete'
+                Uri             = $Uri
+                UseBasicParsing = $true
             }
         }
         catch {
