@@ -70,6 +70,7 @@ function New-Mga {
                 Headers = $Script:MgaSession.HeaderParameters
                 Uri     = $Uri
                 Method  = 'Post'
+                UseBasicParsing = $true
             }
             if ($Body) {
                 $InvokeWebRequestSplat.Body = $Body

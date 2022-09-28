@@ -77,6 +77,7 @@ function Get-Mga {
                 Headers = $Script:MgaSession.HeaderParameters
                 Uri     = $Uri
                 Method  = 'Get'
+                UseBasicParsing = $true
             }
         }
         catch {

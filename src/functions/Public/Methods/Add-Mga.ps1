@@ -63,9 +63,10 @@ function Add-Mga {
                 $Body = ConvertTo-MgaJson -Body $Body
             }
             $InvokeWebRequestSplat = @{
-                Headers = $Script:MgaSession.HeaderParameters
-                Uri     = $Uri
-                Method  = 'Put'
+                Headers         = $Script:MgaSession.HeaderParameters
+                Uri             = $Uri
+                Method          = 'Put'
+                UseBasicParsing = $true
             }
             if ($Body) {
                 $InvokeWebRequestSplat.Body = $Body
@@ -90,7 +91,7 @@ function Add-Mga {
                 Reference             = $Reference
                 UpdateMgaUriReference = $UpdateMgaUriReference
                 Result                = $Result
-                Throw                = $_
+                Throw                 = $_
             }
             $Uri = (Start-MgaProcessCatchDefault @StartMgaProcessCatchDefaultSplat).Uri
             $MgaSplat = @{

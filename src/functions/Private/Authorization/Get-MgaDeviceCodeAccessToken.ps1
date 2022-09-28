@@ -2,12 +2,13 @@ function Get-MgaDeviceCodeAccessToken {
     try {
         $ClientId = '1b730954-1685-4b74-9bfd-dac224a7b894'
         $DeviceCodeRequestParams = @{
-            Method = 'POST'
-            Uri    = 'https://login.microsoftonline.com/common/oauth2/devicecode'
-            Body   = @{
+            Method          = 'POST'
+            Uri             = 'https://login.microsoftonline.com/common/oauth2/devicecode'
+            Body            = @{
                 client_id = $ClientId
                 resource  = 'https://graph.microsoft.com/'
             }
+            UseBasicParsing = $true
         }           
         $DeviceCodeRequest = Invoke-RestMethod @DeviceCodeRequestParams
         Write-Host $DeviceCodeRequest.message
