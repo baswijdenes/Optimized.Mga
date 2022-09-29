@@ -28,22 +28,22 @@ function Invoke-Mga {
     Type of Method to the Microsoft Graph Endpoint.
     Methods are: Get, Post, Patch, Put, Delete, Batch.
     
-    .PARAMETER Reference
+    .PARAMETER Api
     This is not a mandatory parameter. 
     By using v1.0 or beta it will always overwrite the value given in the Uri.
-    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta reference.
+    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta Api.
 
     .EXAMPLE
     Invoke-Mga -Uri 'https://graph.microsoft.com/v1.0/users' -Method 'GET'
 
     .EXAMPLE 
-    Invoke-Mga -Uri '/users' -Method 'Post' -Reference 'beta' -Body $Body
+    Invoke-Mga -Uri '/users' -Method 'Post' -Api 'beta' -Body $Body
 
     .EXAMPLE
-    Invoke-Mga -Uri 'https://graph.microsoft.com/beta/groups' -Method 'Patch' -Reference 'v1.0' -Body $Body
+    Invoke-Mga -Uri 'https://graph.microsoft.com/beta/groups' -Method 'Patch' -Api 'v1.0' -Body $Body
 
     .EXAMPLE
-    Invoke-Mga -Uri 'beta/groups' -Method 'Delete' -Reference 'All'
+    Invoke-Mga -Uri 'beta/groups' -Method 'Delete' -Api 'All'
 
     .EXAMPLE
     Invoke-Mga -Method 'Batch' -Body $Body
@@ -63,7 +63,8 @@ function Invoke-Mga {
         $Method,
         [Parameter(Mandatory = $false, ParameterSetName = 'Default')]
         [ValidateSet('All', 'v1.0', 'beta')]
-        $Reference
+        [Alias('Reference')]
+        [string]$Api
     )
     begin {
         if ($Uri) {
@@ -73,8 +74,8 @@ function Invoke-Mga {
             if ($Body) {
                 $InvokeSplat.Body = $Body
             }
-            if ($Reference) {
-                $InvokeSplat.Reference = $Reference
+            if ($Api) {
+                $InvokeSplat.Api = $Api
             }
         }
     }

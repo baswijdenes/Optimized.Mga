@@ -1,30 +1,28 @@
 function Start-MgaBeginDefault {
     param (
         $CustomHeader,
-        $Reference,
+        $Api,
         $Uri
     )
     try {
-        $UpdateMgaUriReferenceSplat = @{
-            Uri       = $Uri
-            Reference = 'v1.0'
-        }
         if ($Uri.Count -eq 1) {
             Update-MgaOauthToken
             if ($CustomHeader) {
                 Enable-MgaCustomHeader -CustomHeader $CustomHeader
             }
-            if ($Reference -eq 'All') {
-                $Uri = Update-MgaUriReference @UpdateMgaUriReferenceSplat
+            if ($Api -eq 'All') {
+                $Api = 'v1.0'
+                $Uri = Build-MgaUri -Uri $Uri -Api 'v1.0'
             }
-            elseif ($Reference) {
-                $Uri = Update-MgaUriReference -Uri $Uri -Reference $Reference
+            elseif ($Api) {
+                $Uri = Build-MgaUri -Uri $Uri -Api $Api
             }
             else {
                 $Uri = Build-MgaUri -Uri $Uri
             }
 
-        } else {
+        }
+        else {
             $UriResult = @()
             foreach ($Url in $Uri) {
                 $UriResult += Build-MgaUri -Uri $Url
@@ -32,8 +30,8 @@ function Start-MgaBeginDefault {
             $Uri = $UriResult
         }
         return [PSCustomObject]@{
-            Uri                   = $Uri
-            UpdateMgaUriReference = $UpdateMgaUriReferenceSplat.Refence
+            Uri = $Uri
+            Api = $Api
         }
     }
     catch {

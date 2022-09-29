@@ -24,10 +24,10 @@ function Get-Mga {
     .PARAMETER SkipNextLink
     When you use this switch it will only return the first data result of the response without checking the NextDataLink URL.
 
-    .PARAMETER Reference
+    .PARAMETER Api
     This is not a mandatory parameter. 
     By using v1.0 or beta it will always overwrite the value given in the Uri.
-    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta reference.
+    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta Api.
 
     .PARAMETER CustomHeader
     This not a not mandatory parameter, there is a default header containing application/json.
@@ -44,11 +44,11 @@ function Get-Mga {
 
     .EXAMPLE
     $Uri = 'https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,lastPasswordChangeDateTime,createdDateTime,PasswordPolicies'
-    Get-Mga -Uri $Uri -Reference 'All'
+    Get-Mga -Uri $Uri -Api 'All'
 
     .EXAMPLE
     $Uri = '/beta/users?$filter=(UserType eq 'Guest')&$select=displayName,userPrincipalName,createdDateTime,signInActivity'
-    Get-Mga -Uri $Uri -Reference 'v1.0'
+    Get-Mga -Uri $Uri -Api 'v1.0'
     #>
     [CmdletBinding()]
     param (
@@ -61,22 +61,22 @@ function Get-Mga {
         [Alias('Once')]
         $SkipNextLink,
         [Parameter(Mandatory = $false)]      
-        [string]
         [ValidateSet('All', 'v1.0', 'beta')]
-        $Reference,
+        [Alias('Reference')]
+        [string]$Api,
         [Parameter(Mandatory = $false)]
         [object]
         $CustomHeader
     )
     begin {
         try {
-            $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Reference $Reference -Uri $Uri
+            $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Api $Api -Uri $Uri
             $Uri = $StartMgaBeginDefault.Uri
-            $UpdateMgaUriReference = $StartMgaBeginDefault.UpdateMgaUriReference
+            $UpdateMgaUriApi = $StartMgaBeginDefault
             $InvokeWebRequestSplat = @{
-                Headers = $Script:MgaSession.HeaderParameters
-                Uri     = $Uri
-                Method  = 'Get'
+                Headers         = $Script:MgaSession.HeaderParameters
+                Uri             = $Uri
+                Method          = 'Get'
                 UseBasicParsing = $true
             }
         }
@@ -106,22 +106,23 @@ function Get-Mga {
                     }
                 }
             }
-            if ((-not($EndResult)) -and ($Reference -eq 'All') -and ($UpdateMgaUriReference.Reference -eq 'v1.0')) {
-                Write-Warning 'No data found, trying again with -Reference beta'
+            if ((-not($EndResult)) -and ($Api -eq 'All') -and ($UpdateMgaUriApi.Api -eq 'v1.0')) {
+                Write-Warning 'No data found, trying again with -Api beta'
                 throw $_
             }
         }
         catch {
             $StartMgaProcessCatchDefaultSplat = @{
-                Uri                   = $Uri
-                Reference             = $Reference
-                UpdateMgaUriReference = $UpdateMgaUriReference
-                Result                = $Result
-                Throw                 = $_
+                Uri             = $Uri
+                Api             = $Api
+                UpdateMgaUriApi = $UpdateMgaUriApi
+                Result          = $Result
+                Throw           = $_
             }
             $Uri = (Start-MgaProcessCatchDefault @StartMgaProcessCatchDefaultSplat).Uri 
             $MgaSplat = @{
                 Uri = $Uri
+                Api = 'Beta'
             }
             if ($SkipNextLink) {
                 $MgaSplat.SkipNextLink = $true

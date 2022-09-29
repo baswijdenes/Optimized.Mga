@@ -14,7 +14,7 @@ Invoke-Mga is a wrapper around the default Method cmdlets in the Mga module.
 
 ### Default (Default)
 ```
-Invoke-Mga -Uri <Object> [-Body <Object>] -Method <Object> [-Reference <Object>] [<CommonParameters>]
+Invoke-Mga -Uri <Object> [-Body <Object>] -Method <Object> [-Api <Object>] [<CommonParameters>]
 ```
 
 ### Batch
@@ -34,17 +34,17 @@ Invoke-Mga -Uri 'https://graph.microsoft.com/v1.0/users' -Method 'GET'
 
 ### EXAMPLE 2
 ```
-Invoke-Mga -Uri '/users' -Method 'Post' -Reference 'beta' -Body $Body
+Invoke-Mga -Uri '/users' -Method 'Post' -Api 'beta' -Body $Body
 ```
 
 ### EXAMPLE 3
 ```
-Invoke-Mga -Uri 'https://graph.microsoft.com/beta/groups' -Method 'Patch' -Reference 'v1.0' -Body $Body
+Invoke-Mga -Uri 'https://graph.microsoft.com/beta/groups' -Method 'Patch' -Api 'v1.0' -Body $Body
 ```
 
 ### EXAMPLE 4
 ```
-Invoke-Mga -Uri 'beta/groups' -Method 'Delete' -Reference 'All'
+Invoke-Mga -Uri 'beta/groups' -Method 'Delete' -Api 'All'
 ```
 
 ### EXAMPLE 5
@@ -130,11 +130,11 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Reference
+### -Api
 This is not a mandatory parameter. 
 By using v1.0 or beta it will always overwrite the value given in the Uri.
 By using All it will first try v1.0 in a try and catch.
-and when it jumps to the catch it will use the beta reference.
+and when it jumps to the catch it will use the beta Api.
 
 ```yaml
 Type: Object

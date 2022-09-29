@@ -88,7 +88,7 @@ Accept wildcard characters: False
 ```
 
 ### -Beta
-Use this for when you want to use the beta reference. 
+Use this for when you want to use the beta Api. 
 By default it's v1.0.
 
 ```yaml

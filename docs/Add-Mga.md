@@ -13,7 +13,7 @@ Add-Mga is an Alias for the method Put.
 ## SYNTAX
 
 ```
-Add-Mga [-Uri] <String> [-Body <Object>] [-Reference <String>] [-CustomHeader <Object>] [<CommonParameters>]
+Add-Mga [-Uri] <String> [-Body <Object>] [-Api <String>] [-CustomHeader <Object>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -56,11 +56,11 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Reference
+### -Api
 This is not a mandatory parameter. 
 By using v1.0 or beta it will always overwrite the value given in the Uri.
 By using All it will first try v1.0 in a try and catch.
-and when it jumps to the catch it will use the beta reference.
+and when it jumps to the catch it will use the beta Api.
 
 ```yaml
 Type: String

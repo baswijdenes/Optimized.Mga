@@ -24,10 +24,10 @@ function Set-Mga {
     .PARAMETER Body
     Body will accept a PSObject or a Json string.
 
-    .PARAMETER Reference
+    .PARAMETER Api
     This is not a mandatory parameter. 
     By using v1.0 or beta it will always overwrite the value given in the Uri.
-    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta reference.
+    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta Api.
 
     .PARAMETER CustomHeader
     This not a not mandatory parameter, there is a default header containing application/json.
@@ -69,9 +69,9 @@ function Set-Mga {
     )
     begin {
         try {
-            $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Reference $Reference -Uri $Uri
+            $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Api $Api -Uri $Uri
             $Uri = $StartMgaBeginDefault.Uri
-            $UpdateMgaUriReference = $StartMgaBeginDefault.UpdateMgaUriReference
+            $UpdateMgaUriApi =  $StartMgaBeginDefault
             $ValidateJson = ConvertTo-MgaJson -Body $Body -Validate
         }
         catch {
@@ -141,14 +141,15 @@ function Set-Mga {
         catch {
             $StartMgaProcessCatchDefaultSplat = @{
                 Uri                   = $Uri
-                Reference             = $Reference
-                UpdateMgaUriReference = $UpdateMgaUriReference
+                Api             = $Api
+                UpdateMgaUriApi = $UpdateMgaUriApi
                 Result                = $Result
                 Throw                 = $_
             }
             $Uri = (Start-MgaProcessCatchDefault @StartMgaProcessCatchDefaultSplat).Uri
             $MgaSplat = @{
                 Uri = $Uri
+                Api = 'Beta'
             }
             if ($Body) {
                 $MgaSplat.Body = $Body
