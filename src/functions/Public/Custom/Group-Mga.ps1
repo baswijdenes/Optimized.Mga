@@ -22,7 +22,7 @@ function Group-Mga {
     You can manually change the header for the Batch, but this will change the header for all items in the ArrayList.
     
     .PARAMETER Beta
-    Use this for when you want to use the beta reference. 
+    Use this for when you want to use the beta Api. 
     By default it's v1.0.
     
     .EXAMPLE

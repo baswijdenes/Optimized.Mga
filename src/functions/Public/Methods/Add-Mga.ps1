@@ -23,10 +23,10 @@ function Add-Mga {
     .PARAMETER Body
     Body will accept a PSObject or a Json string.
 
-    .PARAMETER Reference
+    .PARAMETER Api
     This is not a mandatory parameter. 
     By using v1.0 or beta it will always overwrite the value given in the Uri.
-    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta reference.
+    By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta Api.
 
     .PARAMETER CustomHeader
     This not a not mandatory parameter, there is a default header containing application/json.
@@ -40,25 +40,22 @@ function Add-Mga {
     param (
         [Parameter(Mandatory = $true, Position = 0)]
         [Alias('URL')]
-        [string]
-        $Uri,
+        [string]$Uri,
         [Parameter(Mandatory = $false)]
         [Alias('InputObject')]
-        [object]
-        $Body,
+        [object]$Body,
         [Parameter(Mandatory = $false)]      
-        [string]
         [ValidateSet('All', 'v1.0', 'beta')]
-        $Reference,
+        [Alias('Reference')]
+        [string]$Api,
         [Parameter(Mandatory = $false)]
-        [object]
-        $CustomHeader
+        [object]$CustomHeader
     )
     begin {
         try {
-            $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Reference $Reference -Uri $Uri
+            $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Api $Api -Uri $Uri
             $Uri = $StartMgaBeginDefault.Uri
-            $UpdateMgaUriReference = $StartMgaBeginDefault.UpdateMgaUriReference
+            $UpdateMgaUriApi =  $StartMgaBeginDefault
             elseif ($Uri -notlike '*/uploadSession*') {
                 $Body = ConvertTo-MgaJson -Body $Body
             }
@@ -80,22 +77,23 @@ function Add-Mga {
         try {
             $Result = Invoke-WebRequest @InvokeWebRequestSplat
             $EndResult = ConvertTo-MgaResult -Response $Result
-            if ((-not($EndResult)) -and ($Reference -eq 'All') -and ($UpdateMgaUriReference.Reference -eq 'v1.0')) {
-                Write-Warning 'No data found, trying again with -Reference beta'
+            if ((-not($EndResult)) -and ($Api -eq 'All') -and ($UpdateMgaUriApi.Api -eq 'v1.0')) {
+                Write-Warning 'No data found, trying again with -Api beta'
                 throw $_
             }
         }
         catch {
             $StartMgaProcessCatchDefaultSplat = @{
                 Uri                   = $Uri
-                Reference             = $Reference
-                UpdateMgaUriReference = $UpdateMgaUriReference
+                Api             = $Api
+                UpdateMgaUriApi = $UpdateMgaUriApi
                 Result                = $Result
                 Throw                 = $_
             }
             $Uri = (Start-MgaProcessCatchDefault @StartMgaProcessCatchDefaultSplat).Uri
             $MgaSplat = @{
                 Uri = $Uri
+                Api = 'Beta'
             }
             if ($Body) {
                 $MgaSplat.Body = $Body

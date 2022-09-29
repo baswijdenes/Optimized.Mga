@@ -1,16 +1,17 @@
 function Start-MgaProcessCatchDefault {
     param (
-        $Reference,
-        $UpdateMgaUriReference,
+        $Api,
+        $UpdateMgaUriApi,
         $Result,
         $Uri,
         $Throw
     )
     try {
         if ($Uri.count -eq 1) {        
-            if (($Reference -eq 'All') -and ($UpdateMgaUriReference.Reference -eq 'v1.0')) {
-                $UpdateMgaUriReference.Reference = 'beta'
-                $Uri = Update-MgaUriReference @UpdateMgaUriReference
+            if (($Api -eq 'All') -and ($UpdateMgaUriApi.Api -eq 'v1.0')) {
+                Write-Verbose "No results found for the v1.0 Api. Trying the beta Api..."
+                #$Uri = Update-MgaUriApi -Uri $Uri -Api 'Beta'
+                #Build-MgaUri -Uri $Uri -Api 'Beta'
             }
             else {
                 if ($Result.'@odata.nextLink') {

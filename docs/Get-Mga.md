@@ -13,7 +13,7 @@ Get-Mga is an Alias for the method Get.
 ## SYNTAX
 
 ```
-Get-Mga [-Uri] <String> [-SkipNextLink] [-Reference <String>] [-CustomHeader <Object>] [<CommonParameters>]
+Get-Mga [-Uri] <String> [-SkipNextLink] [-Api <String>] [-CustomHeader <Object>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -40,13 +40,13 @@ Get-Mga -Uri 'https://graph.microsoft.com/v1.0/users/Testuser@baswijdenes.com'
 ### EXAMPLE 4
 ```
 $Uri = 'https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,lastPasswordChangeDateTime,createdDateTime,PasswordPolicies'
-Get-Mga -Uri $Uri -Reference 'All'
+Get-Mga -Uri $Uri -Api 'All'
 ```
 
 ### EXAMPLE 5
 ```
 $Uri = '/beta/users?$filter=(UserType eq 'Guest')&$select=displayName,userPrincipalName,createdDateTime,signInActivity'
-Get-Mga -Uri $Uri -Reference 'v1.0'
+Get-Mga -Uri $Uri -Api 'v1.0'
 ```
 
 ## PARAMETERS
@@ -86,11 +86,11 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Reference
+### -Api
 This is not a mandatory parameter. 
 By using v1.0 or beta it will always overwrite the value given in the Uri.
 By using All it will first try v1.0 in a try and catch.
-and when it jumps to the catch it will use the beta reference.
+and when it jumps to the catch it will use the beta Api.
 
 ```yaml
 Type: String

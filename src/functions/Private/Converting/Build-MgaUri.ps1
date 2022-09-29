@@ -1,13 +1,14 @@
 function Build-MgaUri {
     param (
-        $Uri
+        $Uri,
+        $Api
     )
     try {
+        $Verbose = 'Formatted Uri to: ' 
         if ($Uri -like 'https://graph.microsoft.com/*') {
             $Uri = $Uri
         }
         else {
-            $Verbose = 'Formatted Uri to: ' 
             if ($Uri -like '/v1.0/*') {
                 $Uri = "https://graph.microsoft.com$Uri"
             }
@@ -26,8 +27,14 @@ function Build-MgaUri {
             else {
                 $Uri = "https://graph.microsoft.com/v1.0/$Uri"
             }
-            Write-Verbose "$Verbose$Uri"
         }
+        if ($Api -eq 'beta') {
+            $Uri = $Uri -Replace '/v1.0/', '/beta/'
+        }
+        elseif ($Api -eq 'v1.0') {
+            $Uri = $Uri -Replace '/beta/', '/v1.0/'
+        }
+        Write-Verbose "$Verbose$Uri"
         return $Uri
     }
     catch {
