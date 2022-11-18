@@ -15,16 +15,16 @@ Foreach ($import in @($Public + $Private)) {
 #region Support old functions
 try {
     Write-Verbose 'Writing older cmdlet names to alias list'
-    New-Alias -Name 'Connect-Mga' -Value 'Get-MgaToken'
-    New-Alias -Name 'Disconnect-Mga' -Value 'Remove-MgaToken'
-    New-Alias -Name 'Show-MgaAccessToken' -Value 'Show-MgaToken'
-    New-Alias -Name 'Patch-Mga' -Value 'Set-Mga'
-    New-Alias -Name 'Put-Mga' -Value 'Add-Mga'
-    New-Alias -Name 'Post-Mga' -Value 'New-Mga'
-    New-Alias -Name 'Delete-Mga' -Value 'Remove-Mga'
-    New-Alias -Name 'Batch-Mga' -Value 'Group-Mga'
-    New-Alias -Name 'Get-MgaVariable' -Value 'Get-MgaHashTable'
-    New-Alias -Name 'Update-MgaVariable' -Value 'Update-MgaHashTable'
+    New-Alias -Name 'Connect-Mga' -Value 'Get-MgaToken' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Disconnect-Mga' -Value 'Remove-MgaToken' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Show-MgaAccessToken' -Value 'Show-MgaToken' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Patch-Mga' -Value 'Set-Mga' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Put-Mga' -Value 'Add-Mga' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Post-Mga' -Value 'New-Mga' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Delete-Mga' -Value 'Remove-Mga' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Batch-Mga' -Value 'Group-Mga' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Get-MgaVariable' -Value 'Get-MgaHashTable' -ErrorAction SilentlyContinue
+    New-Alias -Name 'Update-MgaVariable' -Value 'Update-MgaHashTable' -ErrorAction SilentlyContinue
 }
 catch {
     Write-Verbose 'Aliases already exists'

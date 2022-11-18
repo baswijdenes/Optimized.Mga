@@ -8,6 +8,9 @@ function Trace-MgaThrottle {
         if ($RetryValue -eq 0) {
             $RetryValue = 15  
         }
+        elseif ($RetryValue -eq 1) {
+            $RetryValue = 15  
+        }
         elseif ([string]::IsNullOrEmpty($RetryValue)) {
             $RetryValue = 15 
         }

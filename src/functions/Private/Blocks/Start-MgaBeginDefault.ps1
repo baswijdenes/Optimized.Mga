@@ -20,7 +20,6 @@ function Start-MgaBeginDefault {
             else {
                 $Uri = Build-MgaUri -Uri $Uri
             }
-
         }
         else {
             $UriResult = @()

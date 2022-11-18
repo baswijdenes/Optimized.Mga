@@ -33,6 +33,11 @@ function Set-Mga {
     This not a not mandatory parameter, there is a default header containing application/json.
     By using this parameter you can add a custom header. The CustomHeader is reverted back to the original after the cmdlet has run.
 
+    .PARAMETER ReturnAsJson
+    This is not a mandatory parameter. 
+    By using, this the output will be returned as Json.
+    When it cannot be converted to json, it will be returned as is.
+
     .PARAMETER Batch
     By using Batch you can patch multiple objects at once by using Batch-Mga. 
     This will only work for a body that has the members@odata.bind property.
@@ -60,12 +65,18 @@ function Set-Mga {
         [Alias('InputObject')]
         [object]
         $Body,
+        [Parameter(Mandatory = $false)]      
+        [ValidateSet('All', 'v1.0', 'beta')]
+        [Alias('Reference')]
+        [string]$Api,
         [Parameter(Mandatory = $false)]
         [switch]
         $Batch,
         [Parameter(Mandatory = $false)]
         [object]
-        $CustomHeader
+        $CustomHeader,
+        [Parameter(Mandatory = $false)]
+        [switch]$ReturnAsJson
     )
     begin {
         try {
@@ -159,6 +170,6 @@ function Set-Mga {
         }
     }
     end {
-        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose
+        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose -ReturnAsJson $ReturnAsJson
     }
 }

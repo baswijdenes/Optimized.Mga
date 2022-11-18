@@ -1,3 +1,47 @@
+# 4.0.0
+## New features
+### Query parameters for the `Get-Mga` cmdlet!
+You can now use query parameters to filter the results of the `Get-Mga` cmdlet. For example, to get all the users in your tenant, you can use the following command:
+```powershell
+Get-Mga -Uri users -Top 999 -Select Id, displayName, userPrincipalName -OrderBy DisplayName
+
+0f050b84-cce2-4b15-bbf9-c133e3cf3c64 ZzFOAlKcWf                ZzFOAlKcWf@M365x37707772.onmicrosoft.com
+53e2aa0f-3891-46c4-8419-637368ed1d32 ZzhQJKNcOs                ZzhQJKNcOs@M365x37707772.onmicrosoft.com
+f4272b98-8b8f-4c21-b19e-aa5a31dc2fb0 ZzRKbqGgkd                ZzRKbqGgkd@M365x37707772.onmicrosoft.com
+```
+Current supported query parameters are:
+- Top
+- Skip
+- Select
+- OrderBy
+- Expand
+- Count
+
+There is no filter or such yet for queries not supported by specific endpoints (yet).
+
+### Return as Json for `Get-Mga`, `Add-Mga`, `New-Mga`, `Set-Mga`! 
+You can now use the -ReturnAsJson parameter to return the results of the `Get-Mga`, `Add-Mga`, `New-Mga`, `Set-Mga` cmdlets as a Json string.  
+For example, to get all the users in your tenant, you can use the following command:
+```powershell
+Get-Mga -Uri users -Top 999 -Skip 900 -Select Id, displayName, userPrincipalName -OrderBy DisplayName -ReturnAsJson
+  {
+    "id": "53e2aa0f-3891-46c4-8419-637368ed1d32",
+    "displayName": "ZzhQJKNcOs",
+    "userPrincipalName": "ZzhQJKNcOs@M365x37707772.onmicrosoft.com"
+  },
+  {
+    "id": "f4272b98-8b8f-4c21-b19e-aa5a31dc2fb0",
+    "displayName": "ZzRKbqGgkd",
+    "userPrincipalName": "ZzRKbqGgkd@M365x37707772.onmicrosoft.com"
+  }
+```
+### `Get-MgaToken` (Old `Connect-Mga`) now logs in by DeviceCode by default
+`Get-MgaToken` will now use `-DeviceCode $true` when there is no login type specified.  
+This will also automatically load [https://](https://microsoft.com/devicelogin) in the browser.
+
+# 3.0.3.3
+- Updated bug fix for errorhandling in importing module
+  
 # 3.0.3.2
 - Updated the Reference parameter to Api
 

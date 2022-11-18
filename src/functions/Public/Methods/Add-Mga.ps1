@@ -32,6 +32,11 @@ function Add-Mga {
     This not a not mandatory parameter, there is a default header containing application/json.
     By using this parameter you can add a custom header. The CustomHeader is reverted back to the original after the cmdlet has run.
 
+    .PARAMETER ReturnAsJson
+    This is not a mandatory parameter. 
+    By using, this the output will be returned as Json.
+    When it cannot be converted to json, it will be returned as is.
+
     .NOTES
     The method Put is currently only used for uploading files to Sharepoint.
     Examples: https://baswijdenes.com/how-to-upload-files-to-sharepoint-with-ms-graph-api-and-powershell/
@@ -49,7 +54,9 @@ function Add-Mga {
         [Alias('Reference')]
         [string]$Api,
         [Parameter(Mandatory = $false)]
-        [object]$CustomHeader
+        [object]$CustomHeader,
+        [Parameter(Mandatory = $false)]
+        [switch]$ReturnAsJson
     )
     begin {
         try {
@@ -103,6 +110,6 @@ function Add-Mga {
         }
     }
     end {
-        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose
+        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose -ReturnAsJson $ReturnAsJson
     }
 }
