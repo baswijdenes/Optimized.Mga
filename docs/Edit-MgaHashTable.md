@@ -38,7 +38,7 @@ You can add several subproperties by using 'property1.subproperty.subproperty'
 ```yaml
 Type: Object
 Parameter Sets: (All)
-Aliases:
+Aliases: Variable
 
 Required: True
 Position: 1

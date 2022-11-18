@@ -37,7 +37,7 @@ Get-Mga -Uri users -Top 999 -Skip 900 -Select Id, displayName, userPrincipalName
 ```
 ### `Get-MgaToken` (Old `Connect-Mga`) now logs in by DeviceCode by default
 `Get-MgaToken` will now use `-DeviceCode $true` when there is no login type specified.  
-This will also automatically load [https://](https://microsoft.com/devicelogin) in the browser.
+This will also automatically load [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin) in the browser.
 
 # 3.0.3.3
 - Updated bug fix for errorhandling in importing module
