@@ -1,5 +1,7 @@
 # Optimized.Mga
-!!! IMPORTANT UPDATES! PLEASE SEE RELEASE NOTES [3.0.3.md](./CHANGELOG.md) !!!
+
+![PowerShell Gallery](https://img.shields.io/powershellgallery/v/optimized.mga)
+![PowerShell Gallery](https://img.shields.io/powershellgallery/dt/optimized.mga)
 
 Don't you wish you have a Microsoft Graph module which handles batching, the token and throttling for you, but where you can just enter your own URL, so you aren't restricted to the limitations of the official Microsoft Module and even includes a way to speed up the process?
 
