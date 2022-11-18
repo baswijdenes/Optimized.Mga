@@ -32,6 +32,42 @@ function Get-Mga {
     .PARAMETER CustomHeader
     This not a not mandatory parameter, there is a default header containing application/json.
     By using this parameter you can add a custom header. The CustomHeader is reverted back to the original after the cmdlet has run.
+
+    .PARAMETER ReturnAsJson
+    This is not a mandatory parameter. 
+    By using, this the output will be returned as Json.
+    When it cannot be converted to json, it will be returned as is.
+
+    .PARAMETER Top
+    This is not a mandatory parameter. It accepts an integer only.
+    This is a query parameter:
+    https://learn.microsoft.com/en-us/graph/query-parameters
+
+    .PARAMETER Skip
+    This is not a mandatory parameter. It accepts an integer only.
+    This is a query parameter:
+    https://learn.microsoft.com/en-us/graph/query-parameters
+
+    .PARAMETER Count
+    This is not a mandatory parameter. This is a switch parameter.
+    This is a query parameter:
+    https://learn.microsoft.com/en-us/graph/query-parameters#count-parameter
+
+    .PARAMETER OrderBy
+    This is not a mandatory parameter. This is a string value and only accepts one string.
+    This is a query parameter:
+    https://learn.microsoft.com/en-us/graph/query-parameters
+
+    .PARAMETER Expand
+    This is not a mandatory parameter. This is a string value and only accepts one string.
+    This is a query parameter:
+    https://learn.microsoft.com/en-us/graph/query-parameters
+
+
+    .PARAMETER Select
+    This is not a mandatory parameter. This is a string value and accepts a string array.
+    This is a query parameter:
+    https://learn.microsoft.com/en-us/graph/query-parameters
     
     .EXAMPLE
     Get-Mga -Uri 'v1.0/users' -SkipNextLink
@@ -54,24 +90,44 @@ function Get-Mga {
     param (
         [Parameter(Mandatory = $true, Position = 0)]
         [Alias('URL')]
-        [string]
-        $Uri,
-        [Parameter(Mandatory = $false)]      
-        [switch]
-        [Alias('Once')]
-        $SkipNextLink,
+        [string]$Uri,
+        [Parameter(Mandatory = $false)]
+        [Alias('Once')]      
+        [switch]$SkipNextLink,
         [Parameter(Mandatory = $false)]      
         [ValidateSet('All', 'v1.0', 'beta')]
         [Alias('Reference')]
         [string]$Api,
         [Parameter(Mandatory = $false)]
-        [object]
-        $CustomHeader
+        [object]$CustomHeader,
+        [Parameter(Mandatory = $false)]
+        [switch]$ReturnAsJson,
+        [Parameter(Mandatory = $false)]
+        [int]$Top,
+        [Parameter(Mandatory = $false)]
+        [int]$Skip,
+        [Parameter(Mandatory = $false)]
+        [switch]$Count,
+        [Parameter(Mandatory = $false)]
+        [string]$OrderBy,
+        [Parameter(Mandatory = $false)]
+        [string]$Expand,
+        [Parameter(Mandatory = $false)]
+        [string[]]$Select
     )
     begin {
         try {
             $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Api $Api -Uri $Uri
-            $Uri = $StartMgaBeginDefault.Uri
+            $ConvertToMgaQuerySplat = @{
+                Uri     = $StartMgaBeginDefault.Uri
+                Top     = $Top
+                Skip    = $Skip
+                Count   = $Count
+                Expand  = $Expand
+                OrderBy = $OrderBy
+                Select  = $Select
+            }
+            $Uri = ConvertTo-MgaQuery @ConvertToMgaQuerySplat
             $UpdateMgaUriApi = $StartMgaBeginDefault
             $InvokeWebRequestSplat = @{
                 Headers         = $Script:MgaSession.HeaderParameters
@@ -132,6 +188,6 @@ function Get-Mga {
         }
     }
     end {
-        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose
+        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose -ReturnAsJson $ReturnAsJson
     }
 }

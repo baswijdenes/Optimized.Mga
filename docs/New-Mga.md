@@ -12,7 +12,8 @@ schema: 2.0.0
 ## SYNTAX
 
 ```
-New-Mga [-Uri] <String> [-Body <Object>] [-Api <String>] [-CustomHeader <Object>] [<CommonParameters>]
+New-Mga [-Uri] <String> [-Body <Object>] [-Api <String>] [-CustomHeader <Object>] [-ReturnAsJson]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -81,7 +82,7 @@ and when it jumps to the catch it will use the beta Api.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases:
+Aliases: Reference
 
 Required: False
 Position: Named
@@ -103,6 +104,23 @@ Aliases:
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ReturnAsJson
+This is not a mandatory parameter. 
+By using, this the output will be returned as Json.
+When it cannot be converted to json, it will be returned as is.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

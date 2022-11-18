@@ -39,7 +39,7 @@ Leave empty to see all Propertys, or name the Property you'd like to see.
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases:
+Aliases: Variable
 
 Required: False
 Position: 1

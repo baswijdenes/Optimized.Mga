@@ -14,7 +14,7 @@ Invoke-Mga is a wrapper around the default Method cmdlets in the Mga module.
 
 ### Default (Default)
 ```
-Invoke-Mga -Uri <Object> [-Body <Object>] -Method <Object> [-Api <Object>] [<CommonParameters>]
+Invoke-Mga -Uri <Object> [-Body <Object>] -Method <Object> [-Api <String>] [<CommonParameters>]
 ```
 
 ### Batch
@@ -137,9 +137,9 @@ By using All it will first try v1.0 in a try and catch.
 and when it jumps to the catch it will use the beta Api.
 
 ```yaml
-Type: Object
+Type: String
 Parameter Sets: Default
-Aliases:
+Aliases: Reference
 
 Required: False
 Position: Named

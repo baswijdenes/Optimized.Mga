@@ -28,6 +28,11 @@ function New-Mga {
    .PARAMETER CustomHeader
     This not a not mandatory parameter, there is a default header containing application/json.
     By using this parameter you can add a custom header. The CustomHeader is reverted back to the original after the cmdlet has run.
+
+    .PARAMETER ReturnAsJson
+    This is not a mandatory parameter. 
+    By using, this the output will be returned as Json.
+    When it cannot be converted to json, it will be returned as is.
     
     .EXAMPLE
     $Body = @{
@@ -58,18 +63,20 @@ function New-Mga {
         [string]$Api,
         [Parameter(Mandatory = $false)]
         [object]
-        $CustomHeader
+        $CustomHeader,
+        [Parameter(Mandatory = $false)]
+        [switch]$ReturnAsJson
     )
     begin {
         try {
             $StartMgaBeginDefault = Start-MgaBeginDefault -CustomHeader $CustomHeader -Api $Api -Uri $Uri
             $Uri = $StartMgaBeginDefault.Uri
-            $UpdateMgaUriApi =  $StartMgaBeginDefault
+            $UpdateMgaUriApi = $StartMgaBeginDefault
             $Body = ConvertTo-MgaJson -Body $Body
             $InvokeWebRequestSplat = @{
-                Headers = $Script:MgaSession.HeaderParameters
-                Uri     = $Uri
-                Method  = 'Post'
+                Headers         = $Script:MgaSession.HeaderParameters
+                Uri             = $Uri
+                Method          = 'Post'
                 UseBasicParsing = $true
             }
             if ($Body) {
@@ -91,11 +98,11 @@ function New-Mga {
         }
         catch {
             $StartMgaProcessCatchDefaultSplat = @{
-                Uri                   = $Uri
+                Uri             = $Uri
                 Api             = $Api
                 UpdateMgaUriApi = $UpdateMgaUriApi
-                Result                = $Result
-                Throw                 = $_
+                Result          = $Result
+                Throw           = $_
             }
             $Uri = (Start-MgaProcessCatchDefault @StartMgaProcessCatchDefaultSplat).Uri
             $MgaSplat = @{
@@ -110,6 +117,6 @@ function New-Mga {
         }
     }
     end {
-        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose
+        Complete-MgaResult -Result $EndResult -CustomHeader $CustomHeader -ReturnVerbose $ReturnVerbose -ReturnAsJson $ReturnAsJson
     }
 }

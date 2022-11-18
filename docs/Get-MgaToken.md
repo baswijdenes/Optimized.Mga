@@ -12,6 +12,11 @@ Get-MgaToken will retreive a RefreshToken for the Microsoft Graph API.
 
 ## SYNTAX
 
+### DeviceCode (Default)
+```
+Get-MgaToken [-DeviceCode] [-ClientId <String>] [-Force] [<CommonParameters>]
+```
+
 ### Certificate
 ```
 Get-MgaToken -Certificate <Object> -ClientId <String> -TenantId <String> [-Force] [<CommonParameters>]
@@ -25,11 +30,6 @@ Get-MgaToken -Secret <String> -ClientId <String> -TenantId <String> [-Force] [<C
 ### ManagedIdentity
 ```
 Get-MgaToken [-Identity] [-ClientId <String>] [-TenantId <String>] [-Force] [<CommonParameters>]
-```
-
-### DeviceCode
-```
-Get-MgaToken [-DeviceCode] [-ClientId <String>] [-Force] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -127,7 +127,7 @@ Type: SwitchParameter
 Parameter Sets: DeviceCode
 Aliases:
 
-Required: True
+Required: False
 Position: Named
 Default value: False
 Accept pipeline input: False
@@ -139,10 +139,10 @@ CliendId is the AzureAD Application registration ObjectId.
 
 ```yaml
 Type: String
-Parameter Sets: Certificate, ClientSecret
+Parameter Sets: DeviceCode, ManagedIdentity
 Aliases: ApplicationID, AppID, App, Application
 
-Required: True
+Required: False
 Position: Named
 Default value: None
 Accept pipeline input: False
@@ -151,10 +151,10 @@ Accept wildcard characters: False
 
 ```yaml
 Type: String
-Parameter Sets: ManagedIdentity, DeviceCode
+Parameter Sets: Certificate, ClientSecret
 Aliases: ApplicationID, AppID, App, Application
 
-Required: False
+Required: True
 Position: Named
 Default value: None
 Accept pipeline input: False

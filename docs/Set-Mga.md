@@ -13,7 +13,8 @@ Set-Mga is an Alias for the method Patch.
 ## SYNTAX
 
 ```
-Set-Mga [-Uri] <String> -Body <Object> [-Batch] [-CustomHeader <Object>] [<CommonParameters>]
+Set-Mga [-Uri] <String> -Body <Object> [-Api <String>] [-Batch] [-CustomHeader <Object>] [-ReturnAsJson]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -74,6 +75,23 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -Api
+This is not a mandatory parameter. 
+By using v1.0 or beta it will always overwrite the value given in the Uri.
+By using All it will first try v1.0 in a try and catch. and when it jumps to the catch it will use the beta Api.
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases: Reference
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -Batch
 By using Batch you can patch multiple objects at once by using Batch-Mga. 
 This will only work for a body that has the members@odata.bind property.
@@ -103,6 +121,23 @@ Aliases:
 Required: False
 Position: Named
 Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ReturnAsJson
+This is not a mandatory parameter. 
+By using, this the output will be returned as Json.
+When it cannot be converted to json, it will be returned as is.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

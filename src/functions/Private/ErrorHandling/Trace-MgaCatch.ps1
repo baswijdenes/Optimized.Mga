@@ -6,7 +6,6 @@ function Trace-MgaCatch {
         $WebResponse = $Throw.Exception.Response
         if ($WebResponse.StatusCode -eq 'TooManyRequests') {
             Trace-MgaThrottle -Seconds $WebResponse.Headers.retryafter.delta.Seconds
-
         }
         elseif ($WebResponse.StatusCode -eq 429) {
             Trace-MgaThrottle -Seconds $WebResponse.Headers['Retry-After']

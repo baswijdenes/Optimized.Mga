@@ -56,7 +56,7 @@ function Get-MgaToken {
     .EXAMPLE
     Get-MgaToken -DeviceCode
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'DeviceCode')]
     param (
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
         [ValidateScript( { ($_.length -eq 40) -or ([System.Security.Cryptography.X509Certificates.X509Certificate2]$_) })]
@@ -70,7 +70,7 @@ function Get-MgaToken {
         [Alias('ManagedIdentity', 'ManagedSPN')]
         [switch]
         $Identity,
-        [Parameter(Mandatory = $true, ParameterSetName = 'DeviceCode')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'DeviceCode')]
         [switch]
         $DeviceCode,
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
@@ -97,7 +97,7 @@ function Get-MgaToken {
                 $null = Remove-MgaToken
             }
             else {
-                if ($Script:MgaSession) {
+                if ($Script:MgaSession.headerParameters) {
                     $Confirmation = Read-Host 'You already have an AccessToken, are you sure you want to proceed? Type (Y)es to continue'
                     if (($Confirmation -eq 'y') -or ($Confirmation -eq 'yes') -or ($Confirmation -eq 'true') -or ($Confirmation -eq '(Y)es')) {
                         $null = Remove-MgaToken
@@ -152,11 +152,9 @@ function Get-MgaToken {
             elseif ($Identity -eq $true) {
                 Receive-MgaOauthToken -ManagedIdentity 'TryMe'
             }
-            elseif ($DeviceCode -eq $true) {
-                Receive-MgaOauthToken -DeviceCode
-            }
             else {
-                throw 'No valid parameters were passed to Get-MgaToken'
+                Start-Process 'https://microsoft.com/devicelogin'
+                Receive-MgaOauthToken -DeviceCode
             }
         }
         catch {
